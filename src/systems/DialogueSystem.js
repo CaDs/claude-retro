@@ -219,12 +219,14 @@ export class DialogueSystem {
       startY = 24 + textHeight + 12; // 24 (top margin) + text height + 12 (padding)
     }
 
-    const lineHeight = 14;
+    let cursorY = startY;
     for (let i = 0; i < choices.length; i++) {
-      const cy = startY + i * lineHeight;
-      if (clickY >= cy && clickY < cy + lineHeight) {
+      const choiceText = `${i + 1}. ${choices[i].text}`;
+      const choiceHeight = renderer.measureTextWrappedHiRes(choiceText, 280, { size: 7, lineHeight: 10 });
+      if (clickY >= cursorY && clickY < cursorY + choiceHeight) {
         return i;
       }
+      cursorY += choiceHeight + 2;
     }
     return -1;
   }
@@ -287,26 +289,30 @@ export class DialogueSystem {
     if (this.waitingForChoice && visibleChoices.length > 0) {
       // Calculate dynamic start Y based on text height
       const textHeight = renderer.measureTextWrappedHiRes(this.displayText, 280, textOptions);
-      const startY = 24 + textHeight + 12; 
-      const lineHeight = 14;
+      const startY = 24 + textHeight + 12;
 
+      let cursorY = startY;
       for (let i = 0; i < visibleChoices.length; i++) {
-        const cy = startY + i * lineHeight;
-        
         // Ensure choice is within screen bounds (basic clipping)
-        if (cy + lineHeight > 135) continue; 
+        if (cursorY > 135) break;
 
-        const isHovered = input.mouseY >= cy && input.mouseY < cy + lineHeight
+        const choiceText = `${i + 1}. ${visibleChoices[i].text}`;
+        const choiceOpts = { size: 7, lineHeight: 10 };
+        const choiceHeight = renderer.measureTextWrappedHiRes(choiceText, 280, choiceOpts);
+
+        const isHovered = input.mouseY >= cursorY && input.mouseY < cursorY + choiceHeight
           && input.mouseX >= 20 && input.mouseX < 300;
 
-        renderer.drawTextHiRes(
-          `${i + 1}. ${visibleChoices[i].text}`,
-          24, cy,
+        renderer.drawTextWrappedHiRes(
+          choiceText,
+          24, cursorY, 280,
           {
             color: isHovered ? '#ffdd57' : '#a0c0ff',
             size: 7,
+            lineHeight: 10,
           }
         );
+        cursorY += choiceHeight + 2;
       }
     }
 

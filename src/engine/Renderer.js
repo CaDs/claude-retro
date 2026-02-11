@@ -192,6 +192,20 @@ export class Renderer {
   }
 
   /**
+   * Draw an image on the hi-res overlay (renders on top of everything).
+   * Coordinates are in internal (320×200) space.
+   */
+  drawImageHiRes(img, x, y, w, h) {
+    if (!img) return;
+    this._hiResQueue.push(() => {
+      const sx = this.canvas.width / this.width;
+      const sy = this.canvas.height / this.height;
+      this.ctx.imageSmoothingEnabled = false;
+      this.ctx.drawImage(img, Math.floor(x * sx), Math.floor(y * sy), Math.floor(w * sx), Math.floor(h * sy));
+    });
+  }
+
+  /**
    * Draw a sub-region of an image (sprite sheet).
    */
   drawSprite(img, sx, sy, sw, sh, dx, dy, dw, dh) {

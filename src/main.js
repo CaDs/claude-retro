@@ -49,6 +49,9 @@ class GameEngine {
     this.showingEnding = false;
     this.endingTimer = 0;
 
+    // Pause menu
+    this._pauseMenuOpen = false;
+
     // Current room NPC cache
     this._currentRoomNpcs = [];
 
@@ -167,6 +170,28 @@ class GameEngine {
       this.audio.init();
       // Start BGM for the current room
       this._playRoomMusic(this.scenes.currentRoomId);
+    }
+
+    // Escape key: toggle pause menu or cancel dialogue
+    if (this.input.escapePressed) {
+      if (this._pauseMenuOpen) {
+        this._pauseMenuOpen = false;
+        return;
+      } else if (this.dialogue.active) {
+        this.dialogue.end();
+        return;
+      } else {
+        this._pauseMenuOpen = true;
+        return;
+      }
+    }
+
+    // Pause menu: handle clicks then skip all game updates
+    if (this._pauseMenuOpen) {
+      if (this.input.clicked) {
+        this._handlePauseMenuClick(this.input.clickX, this.input.clickY);
+      }
+      return;
     }
 
     // Clear barks during dialogue/scripts so they don't freeze on screen
@@ -291,23 +316,6 @@ class GameEngine {
       }
     }
 
-    // Save/Load buttons (centered under verb grid)
-    if (this.input.clicked) {
-      // Save button area
-      if (this.input.isClickInRect(20, 188, 50, 10)) {
-        this.saveGame();
-        this.showMessage('Game saved!');
-      }
-      // Load button area
-      if (this.input.isClickInRect(82, 188, 50, 10)) {
-        if (this.save.hasSave()) {
-          this.loadGame();
-          this.showMessage('Game loaded!');
-        } else {
-          this.showMessage('No save found.');
-        }
-      }
-    }
   }
 
   /**
@@ -718,11 +726,11 @@ class GameEngine {
     // Render room background
     this.scenes.renderBackground(this.renderer, this.assets);
 
+    // Time-of-day indicator (top-right of game viewport)
+    this._renderTimeOfDay();
+
     // Z-sorted rendering of props, NPCs, and protagonist
     this._renderZSorted();
-
-    // Render hotspot highlights (when hovering)
-    this._renderHotspotHighlights();
 
     // Render ambient NPC bark bubble
     if (this._barkTimer > 0 && this._barkNpc) {
@@ -746,9 +754,10 @@ class GameEngine {
     // Render inventory
     this.inventory.render(this.renderer, this.assets);
 
-    // Save/Load buttons + time indicator
-    this._renderSaveLoadButtons();
-    this._renderTimeOfDay();
+    // Pause menu overlay
+    if (this._pauseMenuOpen) {
+      this._renderPauseMenu();
+    }
 
     // Custom cursor
     this._renderCursor();
@@ -836,40 +845,6 @@ class GameEngine {
   }
 
   /**
-   * Render hotspot highlight rectangles when hovering.
-   */
-  _renderHotspotHighlights() {
-    const room = this.scenes.getRoom();
-    if (!room) return;
-
-    // Highlight hovered hotspots
-    if (room.hotspots) {
-      for (const hs of room.hotspots) {
-        if (hs.visible === false) continue;
-        if (this.input.isMouseInRect(hs.x, hs.y, hs.width, hs.height)) {
-          this.renderer.drawRectOutline(hs.x, hs.y, hs.width, hs.height, 'rgba(255,221,87,0.4)');
-        }
-      }
-    }
-
-    // Highlight hovered exits
-    if (room.exits) {
-      for (const exit of room.exits) {
-        if (this.input.isMouseInRect(exit.x, exit.y, exit.width, exit.height)) {
-          this.renderer.drawRectOutline(exit.x, exit.y, exit.width, exit.height, 'rgba(100,200,255,0.4)');
-        }
-      }
-    }
-
-    // Highlight hovered NPCs
-    for (const npc of this._currentRoomNpcs) {
-      if (this.input.isMouseInRect(npc.x, npc.y, npc.width, npc.height)) {
-        this.renderer.drawRectOutline(npc.x, npc.y, npc.width, npc.height, 'rgba(255,150,100,0.4)');
-      }
-    }
-  }
-
-  /**
    * Render message box.
    */
   _renderMessageBox() {
@@ -894,28 +869,133 @@ class GameEngine {
   }
 
   /**
-   * Render save/load buttons.
+   * Render pause menu overlay.
    */
-  _renderSaveLoadButtons() {
-    // Save button — centered under verb grid
-    this.renderer.drawRect(20, 188, 50, 10, '#252540');
-    this.renderer.drawRectOutline(20, 188, 50, 10, '#3a3a5e');
-    this.renderer.drawTextHiRes('Save', 32, 189, { size: 7, color: '#a0a0c0', shadow: false });
+  _renderPauseMenu() {
+    // Dark overlay over full 320x200
+    this.renderer.drawRect(0, 0, 320, 200, 'rgba(0,0,0,0.75)');
 
-    // Load button — centered under verb grid
-    this.renderer.drawRect(82, 188, 50, 10, '#252540');
-    this.renderer.drawRectOutline(82, 188, 50, 10, '#3a3a5e');
-    this.renderer.drawTextHiRes('Load', 94, 189, { size: 7, color: '#a0a0c0', shadow: false });
+    // Title
+    this.renderer.drawTextHiRes('PAUSED', 160, 40, {
+      align: 'center', color: '#ffdd57', size: 12,
+    });
+
+    // Menu items
+    const items = ['Resume', 'Save Game', 'Load Game', 'Restart'];
+    const startY = 75;
+    const itemHeight = 18;
+    for (let i = 0; i < items.length; i++) {
+      const y = startY + i * itemHeight;
+      const isHovered = this.input.mouseY >= y && this.input.mouseY < y + itemHeight
+        && this.input.mouseX >= 100 && this.input.mouseX < 220;
+      this.renderer.drawTextHiRes(items[i], 160, y, {
+        align: 'center',
+        color: isHovered ? '#ffdd57' : '#a0c0ff',
+        size: 8,
+      });
+    }
+
+    // Hint at bottom
+    this.renderer.drawTextHiRes('Press ESC to resume', 160, 160, {
+      align: 'center', color: '#666', size: 6,
+    });
+  }
+
+  /**
+   * Handle clicks on pause menu items.
+   */
+  _handlePauseMenuClick(clickX, clickY) {
+    const items = ['resume', 'save', 'load', 'restart'];
+    const startY = 75;
+    const itemHeight = 18;
+    for (let i = 0; i < items.length; i++) {
+      const y = startY + i * itemHeight;
+      if (clickY >= y && clickY < y + itemHeight && clickX >= 100 && clickX < 220) {
+        switch (items[i]) {
+          case 'resume':
+            this._pauseMenuOpen = false;
+            break;
+          case 'save':
+            this.saveGame();
+            this._pauseMenuOpen = false;
+            this.showMessage('Game saved!');
+            break;
+          case 'load':
+            if (this.save.hasSave()) {
+              this.loadGame();
+              this._pauseMenuOpen = false;
+              this.showMessage('Game loaded!');
+            } else {
+              this._pauseMenuOpen = false;
+              this.showMessage('No save found.');
+            }
+            break;
+          case 'restart':
+            this.save.deleteSave();
+            this._restartGame();
+            break;
+        }
+        return;
+      }
+    }
+  }
+
+  /**
+   * Reset all game state to initial values (full restart without reload).
+   */
+  _restartGame() {
+    this._pauseMenuOpen = false;
+
+    // Reset game state
+    this.flags = {};
+    this.messageText = '';
+    this.messageTimer = 0;
+    this.showingEnding = false;
+    this.endingTimer = 0;
+
+    // Reset time of day
+    this._timeOfDayIndex = 0;
+    this.timeOfDay = 'morning';
+    this._timeOfDayTimer = 0;
+
+    // Reset barks
+    this._barkCooldown = 0;
+    this._barkText = '';
+    this._barkNpc = null;
+    this._barkTimer = 0;
+
+    // Reset systems
+    this.inventory.items = [];
+    this.inventory.selectedItem = null;
+    this.dialogue.end();
+    this.dialogue.restoreExhaustionState({ exhaustedNpcs: {}, idleLineIndex: {} });
+    this.scripts.queue = [];
+    this.scripts.running = false;
+    this.scripts.currentAction = null;
+    this.scripts.waitTimer = 0;
+    this.verbs.selectedVerb = 'Look at';
+    this.verbs.selectedItem = null;
+
+    // Reload all rooms to reset hotspot visibility
+    for (const [id, room] of Object.entries(this.content.getAllRooms())) {
+      this.scenes.registerRoom(id, room);
+    }
+
+    // Move to starting room/position
+    this.scenes.loadRoom(this.content.startRoom);
+    this.walking.setPosition(this.content.startPosition.x, this.content.startPosition.y);
+    this._refreshRoomNpcs();
   }
 
   /**
    * Render time-of-day indicator.
    */
   _renderTimeOfDay() {
+    const labels = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', night: 'Night' };
     const colors = { morning: '#ffdd57', afternoon: '#ffaa33', evening: '#cc7733', night: '#6688cc' };
-    const label = this.timeOfDay.charAt(0).toUpperCase() + this.timeOfDay.slice(1);
+    const label = labels[this.timeOfDay] || this.timeOfDay;
     const color = colors[this.timeOfDay] || '#888';
-    this.renderer.drawTextHiRes(label, 280, 189, { size: 6, color, shadow: false });
+    this.renderer.drawTextHiRes(label, 310, 2, { size: 6, color, align: 'right' });
   }
 
   /**
@@ -989,13 +1069,13 @@ class GameEngine {
   _renderCursor() {
     const cursorImg = this.assets.get('cursor');
     if (cursorImg) {
-      this.renderer.drawImage(cursorImg, this.input.mouseX, this.input.mouseY, 8, 8);
+      // Draw on hi-res layer so cursor is always on top of text
+      this.renderer.drawImageHiRes(cursorImg, this.input.mouseX, this.input.mouseY, 8, 8);
     } else {
-      // Fallback crosshair cursor
+      // Fallback crosshair cursor (hi-res text layer for visibility)
       const cx = this.input.mouseX;
       const cy = this.input.mouseY;
-      this.renderer.drawRect(cx, cy - 3, 1, 7, '#ffdd57');
-      this.renderer.drawRect(cx - 3, cy, 7, 1, '#ffdd57');
+      this.renderer.drawTextHiRes('+', cx - 2, cy - 4, { size: 8, color: '#ffdd57', shadow: false });
     }
   }
 

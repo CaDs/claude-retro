@@ -16,6 +16,10 @@ export class InputManager {
     this.rightClicked = false;
     this.hoveredObject = null;
 
+    // Escape key
+    this.escapePressed = false;
+    this._pendingEscape = false;
+
     // Event queue for this frame
     this._pendingClicks = [];
     this._pendingRightClicks = [];
@@ -50,6 +54,12 @@ export class InputManager {
       const y = Math.floor((e.clientY - rect.top) * scaleY);
       this._pendingRightClicks.push({ x, y });
     });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this._pendingEscape = true;
+      }
+    });
   }
 
   /**
@@ -58,6 +68,12 @@ export class InputManager {
   update() {
     this.clicked = false;
     this.rightClicked = false;
+    this.escapePressed = false;
+
+    if (this._pendingEscape) {
+      this.escapePressed = true;
+      this._pendingEscape = false;
+    }
 
     if (this._pendingClicks.length > 0) {
       const click = this._pendingClicks.shift();
