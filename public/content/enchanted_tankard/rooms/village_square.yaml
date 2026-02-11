@@ -10,7 +10,7 @@ room:
 
   walkableArea:
     rects:
-      - { x: 20, y: 90, width: 280, height: 50 }
+      - { x: 20, y: 80, width: 280, height: 60 }
 
   hotspots:
     - id: well
@@ -46,14 +46,16 @@ room:
 
   exits:
     - id: to_tavern
-      rect: { x: 290, y: 70, width: 30, height: 60 }
+      rect: { x: 285, y: 48, width: 26, height: 32 }
+      walkTo: { x: 290, y: 110 }
       target: tavern
       spawnAt: { x: 30, y: 115 }
       name: "Tavern"
       lookAt: "The Rusty Dragon Tavern. Sounds and warmth pour out through the door."
 
     - id: to_forest
-      rect: { x: 130, y: 45, width: 60, height: 20 }
+      rect: { x: 130, y: 30, width: 60, height: 45 }
+      walkTo: { x: 160, y: 100 }
       target: forest_path
       spawnAt: { x: 160, y: 125 }
       name: "Forest Path"

@@ -393,8 +393,8 @@ class GameEngine {
     }
 
     // Walk to exit, then transition
-    const walkX = exit.x + exit.width / 2;
-    const walkY = Math.min(exit.y + exit.height, 135);
+    const walkX = exit.walkTo?.x || (exit.x + exit.width / 2);
+    const walkY = exit.walkTo?.y || Math.min(exit.y + exit.height, 135);
 
     this.walking.walkTo(walkX, walkY, async () => {
       await this.renderer.fadeOut();
