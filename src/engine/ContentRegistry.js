@@ -19,6 +19,7 @@ export class ContentRegistry {
     this._puzzles = gameDef.puzzles;   // array with _key
     this._rooms = gameDef.rooms;       // keyed by ID
     this._dialogues = gameDef.dialogues; // keyed by ID
+    this._music = gameDef.music;         // tracks + roomMusic mapping
   }
 
   // --- Items ---
@@ -91,6 +92,10 @@ export class ContentRegistry {
     return this._npcs.find(n => n.id === id) || null;
   }
 
+  getAllNpcs() {
+    return this._npcs;
+  }
+
   /**
    * Get NPCs placed in a specific room.
    */
@@ -148,5 +153,17 @@ export class ContentRegistry {
     if (cond.not) return !this._evaluateCondition(cond.not, flags, inventory);
 
     return true;
+  }
+
+  // --- Music ---
+
+  /**
+   * Get the music track for a given room, or null if none assigned.
+   */
+  getRoomMusic(roomId) {
+    if (!this._music) return null;
+    const trackId = this._music.roomMusic[roomId];
+    if (!trackId) return null;
+    return this._music.tracks[trackId] || null;
   }
 }

@@ -29,11 +29,18 @@ npcs:
         position: { x: 165, y: 52 }
         size: { width: 20, height: 30 }
         walkTo: { x: 160, y: 100 }
+        facing: left
 
     dialogue: bartender
     dialogueOverrides:
       - condition: { or: [{ hasItem: old_key }, { hasFlag: got_tankard }] }
         dialogue: bartender_after_key
+
+    barks:
+      - "*polishes a glass*"
+      - "What'll it be?"
+      - "Keep it down over there!"
+      - "*wipes the counter*"
 
     responses:
       look_at: "A burly man with a magnificent beard. He polishes a glass with practiced ease."
@@ -60,6 +67,17 @@ npcs:
         walkTo: { x: 130, y: 105 }
 
     dialogue: hermit
+
+    # Schedule: hermit visits village square in the afternoon
+    schedule:
+      afternoon:
+        room: village_square
+        position: { x: 200, y: 85 }
+
+    barks:
+      - "The forest speaks to those who listen..."
+      - "*mutters about herbs*"
+      - "Hmm, the mushrooms are restless today."
 
     responses:
       look_at: "An old woman wrapped in a green shawl. Her eyes seem to know things."

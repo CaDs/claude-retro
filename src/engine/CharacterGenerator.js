@@ -9,6 +9,8 @@
  *  4. Draw clothing type + color
  *  5. Overlay accessories
  *  6. Optional: add facial features (NPC-only, e.g. beard/mustache)
+ *
+ * Supports facing direction (left/right) and idle animation frames (4-5).
  */
 export class CharacterGenerator {
   // --- Skin tone palettes ---
@@ -52,24 +54,83 @@ export class CharacterGenerator {
     tall:    { bodyW: 14, bodyH: 20, headW: 10, headH: 10, shoulderW: 14 },
   };
 
+  // Reusable flip buffer to avoid per-frame allocation
+  static _flipCanvas = null;
+  static _flipCtx = null;
+
+  static _getFlipBuffer(w, h) {
+    if (!this._flipCanvas || this._flipCanvas.width < w || this._flipCanvas.height < h) {
+      this._flipCanvas = document.createElement('canvas');
+      this._flipCanvas.width = w;
+      this._flipCanvas.height = h;
+      this._flipCtx = this._flipCanvas.getContext('2d');
+      this._flipCtx.imageSmoothingEnabled = false;
+    }
+    this._flipCtx.clearRect(0, 0, this._flipCanvas.width, this._flipCanvas.height);
+    return { canvas: this._flipCanvas, ctx: this._flipCtx };
+  }
+
   /**
    * Generate a character sprite and draw it directly.
-   * @param {CanvasRenderingContext2D|object} renderer - Renderer with drawRect method
+   * @param {object} renderer - Renderer with drawRect method
    * @param {number} x - Base X position
    * @param {number} y - Base Y position
    * @param {object} traits - Character trait descriptor
-   * @param {number} frame - Walk cycle frame (0-3)
+   * @param {number} frame - Walk cycle frame (0-3) or idle frame (4-5)
+   * @param {string} facing - 'left' or 'right'
    */
-  static draw(renderer, x, y, traits, frame = 0) {
+  static draw(renderer, x, y, traits, frame = 0, facing = 'right') {
     const template = this.BODY_TEMPLATES[traits.bodyType] || this.BODY_TEMPLATES.average;
+    const cellWidth = 20;
+    const cellHeight = template.headH + template.bodyH + 4; // head + body + legs
+
+    if (facing === 'right') {
+      // Draw to offscreen buffer, then blit flipped
+      const { canvas: flipBuf, ctx: flipCtx } = this._getFlipBuffer(cellWidth + 8, cellHeight + 16);
+
+      // Create a proxy renderer that draws to the flip buffer at local coordinates
+      const proxy = {
+        drawRect(rx, ry, rw, rh, color) {
+          flipCtx.fillStyle = color;
+          flipCtx.fillRect(Math.floor(rx - x), Math.floor(ry - y), rw, rh);
+        }
+      };
+
+      this._drawCharacter(proxy, x, y, traits, frame, template);
+
+      // Flip-blit to the real renderer
+      renderer.bufCtx.save();
+      renderer.bufCtx.translate(Math.floor(x) + cellWidth, Math.floor(y));
+      renderer.bufCtx.scale(-1, 1);
+      renderer.bufCtx.drawImage(flipBuf, 0, 0, cellWidth + 8, cellHeight + 16, 0, 0, cellWidth + 8, cellHeight + 16);
+      renderer.bufCtx.restore();
+    } else {
+      this._drawCharacter(renderer, x, y, traits, frame, template);
+    }
+  }
+
+  /**
+   * Internal character drawing — always draws right-facing.
+   */
+  static _drawCharacter(renderer, x, y, traits, frame, template) {
     const skin = this.SKIN_TONES[traits.skinTone] || this.SKIN_TONES.fair;
     const hairColor = this.HAIR_COLORS[traits.hairColor] || this.HAIR_COLORS.brown;
     const clothColor = this._resolveColor(traits.clothingColor);
     const isFemale = traits.gender === 'female';
 
-    // Subtle bobbing animation (frames 1 and 3 are "down" frames)
-    const isMoving = frame > 0;
-    const bob = (isMoving && (frame === 1 || frame === 3)) ? 1 : 0;
+    // Idle animation support (frames 4-5)
+    const isIdleAnim = frame >= 4;
+    const idleSubFrame = isIdleAnim ? frame - 4 : -1;
+
+    // Walk frames are 1-3; idle frames use 0 as base pose
+    const walkFrame = isIdleAnim ? 0 : frame;
+    const isMoving = walkFrame > 0;
+
+    // Subtle bobbing animation (walk frames 1 and 3 are "down" frames)
+    let bob = (isMoving && (walkFrame === 1 || walkFrame === 3)) ? 1 : 0;
+
+    // Idle breathing: frame 4 = subtle -1px shift (inhale)
+    if (idleSubFrame === 0) bob = -1;
 
     // Calculate centering offset
     const cx = Math.floor((20 - template.bodyW) / 2); // center within a 20px wide cell
@@ -78,14 +139,13 @@ export class CharacterGenerator {
     const legColor = this._darken(clothColor, 40);
     const legH = 4;
     const legY = y + template.headH + template.bodyH - 2;
-    const legOffsetLeft = (isMoving && frame === 1) ? 2 : 0;
-    const legOffsetRight = (isMoving && frame === 3) ? 2 : 0;
-    
+    const legOffsetLeft = (isMoving && walkFrame === 1) ? 2 : 0;
+    const legOffsetRight = (isMoving && walkFrame === 3) ? 2 : 0;
+
     renderer.drawRect(x + cx + 2, legY - legOffsetLeft, 3, legH, legColor);
     renderer.drawRect(x + cx + template.bodyW - 5, legY - legOffsetRight, 3, legH, legColor);
 
     // --- 2. Body (torso) ---
-    // Female torso is slightly narrower or shaped differently
     const torsoW = isFemale ? template.bodyW - 2 : template.bodyW;
     const torsoX = cx + (isFemale ? 1 : 0);
     renderer.drawRect(x + torsoX, y + template.headH + bob, torsoW, template.bodyH - 2, clothColor);
@@ -102,14 +162,20 @@ export class CharacterGenerator {
     const eyeY = headY + Math.floor(template.headH * 0.4);
     const eyeSpacing = Math.floor(template.headW * 0.3);
     const eyeColor = '#222';
-    
-    // Left eye
-    renderer.drawRect(headX + eyeSpacing - 1, eyeY, 2, 2, eyeColor);
-    // Right eye
-    renderer.drawRect(headX + template.headW - eyeSpacing - 1, eyeY, 2, 2, eyeColor);
+
+    // Idle blink: frame 5 = eyes replaced with skin tone (blink)
+    if (idleSubFrame === 1) {
+      // Blink — draw thin line instead of open eyes
+      renderer.drawRect(headX + eyeSpacing - 1, eyeY + 1, 2, 1, eyeColor);
+      renderer.drawRect(headX + template.headW - eyeSpacing - 1, eyeY + 1, 2, 1, eyeColor);
+    } else {
+      // Normal open eyes
+      renderer.drawRect(headX + eyeSpacing - 1, eyeY, 2, 2, eyeColor);
+      renderer.drawRect(headX + template.headW - eyeSpacing - 1, eyeY, 2, 2, eyeColor);
+    }
 
     // Subtle female feature: eyelashes/longer eyes
-    if (isFemale) {
+    if (isFemale && idleSubFrame !== 1) {
       renderer.drawRect(headX + eyeSpacing - 2, eyeY, 1, 1, eyeColor);
       renderer.drawRect(headX + template.headW - eyeSpacing + 1, eyeY, 1, 1, eyeColor);
     }
@@ -129,7 +195,7 @@ export class CharacterGenerator {
 
     // --- 9. Footwear ---
     if (traits.footwear && traits.footwear !== 'none') {
-      this._drawFootwear(renderer, x + cx, legY, template, traits.footwear, isMoving, frame);
+      this._drawFootwear(renderer, x + cx, legY, template, traits.footwear, isMoving, walkFrame);
     }
   }
 
@@ -294,6 +360,14 @@ export class CharacterGenerator {
         renderer.drawRect(headX + Math.floor(template.headW / 2) - 1, headY - 7, 2, 3, '#d4a040');
         break;
     }
+  }
+
+  /**
+   * Get the total height of a character for a given body type (used for Z-sorting).
+   */
+  static getCharacterHeight(bodyType) {
+    const template = this.BODY_TEMPLATES[bodyType] || this.BODY_TEMPLATES.average;
+    return template.headH + template.bodyH + 4;
   }
 
   /**

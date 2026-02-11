@@ -8,6 +8,10 @@ room:
     type: procedural
     generator: village_square
 
+  visuals:
+    - { type: barrel, x: 75, y: 88 }
+    - { type: crate, x: 90, y: 92 }
+
   walkableArea:
     rects:
       - { x: 20, y: 80, width: 280, height: 60 }

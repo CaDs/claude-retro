@@ -15,13 +15,14 @@ export class GameLoader {
     const game = manifest.game;
 
     // Load all referenced files in parallel
-    const [protagonist, items, npcs, puzzles, roomResults, dialogueResults] = await Promise.all([
+    const [protagonist, items, npcs, puzzles, roomResults, dialogueResults, musicResult] = await Promise.all([
       this._loadYaml(`${basePath}/${game.protagonist}`),
       this._loadYaml(`${basePath}/${game.items}`),
       this._loadYaml(`${basePath}/${game.npcs}`),
       this._loadYaml(`${basePath}/${game.puzzles}`),
       Promise.all(game.rooms.map(path => this._loadYaml(`${basePath}/${path}`))),
       Promise.all(game.dialogues.map(path => this._loadYaml(`${basePath}/${path}`))),
+      game.music ? this._loadYaml(`${basePath}/${game.music}`) : Promise.resolve(null),
     ]);
 
     return {
@@ -39,6 +40,7 @@ export class GameLoader {
       puzzles: this._normalizePuzzles(puzzles.puzzles),
       rooms: this._normalizeRooms(roomResults),
       dialogues: this._normalizeDialogues(dialogueResults),
+      music: musicResult ? this._normalizeMusic(musicResult.music) : null,
     };
   }
 
@@ -132,6 +134,9 @@ export class GameLoader {
           lookAt: exit.lookAt || null,
         }));
       }
+      // Preserve visuals array for Z-sorted prop rendering
+      room.visuals = room.visuals || [];
+
       // NPCs are managed by CharacterSystem, not rooms
       // but we keep an empty array for compat
       room.npcs = [];
@@ -150,5 +155,58 @@ export class GameLoader {
       map[dlg.id] = dlg;
     }
     return map;
+  }
+
+  /**
+   * Normalize music definition.
+   * Parses space-separated note strings into arrays and builds lookup maps.
+   */
+  static _normalizeMusic(music) {
+    if (!music) return null;
+
+    const tracks = {};
+    for (const track of (music.tracks || [])) {
+      // Parse channel note strings into arrays
+      const channels = (track.channels || []).map(ch => ({
+        instrument: ch.instrument,
+        notes: this._parseNoteList(ch.notes),
+      }));
+      tracks[track.id] = {
+        id: track.id,
+        bpm: track.bpm || 120,
+        loopLength: track.loopLength || 64,
+        channels,
+      };
+    }
+
+    return {
+      tracks,
+      roomMusic: music.roomMusic || {},
+    };
+  }
+
+  /**
+   * Parse a YAML note list into a flat array of note strings.
+   * Input can be an array of space-separated strings like:
+   *   ["C4 - E4 - G4", "A4 - C5 -"]
+   * Output: ["C4", "-", "E4", "-", "G4", "A4", "-", "C5", "-"]
+   * Dashes represent rests (silence).
+   */
+  static _parseNoteList(notes) {
+    if (!notes || !Array.isArray(notes)) return [];
+    const result = [];
+    for (const line of notes) {
+      if (typeof line === 'string') {
+        const tokens = line.split(/\s+/).filter(t => t.length > 0);
+        for (const token of tokens) {
+          result.push(token === '-' ? null : token);
+        }
+      } else if (line === null || line === undefined) {
+        result.push(null);
+      } else {
+        result.push(line);
+      }
+    }
+    return result;
   }
 }

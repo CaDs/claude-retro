@@ -12,7 +12,9 @@ import { WalkingSystem } from './systems/WalkingSystem.js';
 import { ScriptRunner } from './systems/ScriptRunner.js';
 import { SaveSystem } from './systems/SaveSystem.js';
 import { CharacterSystem } from './systems/CharacterSystem.js';
+import { CharacterGenerator } from './engine/CharacterGenerator.js';
 import { PuzzleSystem } from './systems/PuzzleSystem.js';
+import { AudioSystem } from './systems/AudioSystem.js';
 
 /**
  * GameEngine — Data-driven game engine orchestrating all systems.
@@ -33,6 +35,7 @@ class GameEngine {
     this.walking = new WalkingSystem();
     this.scripts = new ScriptRunner();
     this.save = new SaveSystem();
+    this.audio = new AudioSystem();
 
     // These are set after loading
     this.content = null;
@@ -48,6 +51,23 @@ class GameEngine {
 
     // Current room NPC cache
     this._currentRoomNpcs = [];
+
+    // Audio footstep throttle
+    this._footstepTimer = 0;
+    this._footstepInterval = 14; // frames between footstep sounds
+
+    // Time of day system
+    this._timeOfDayPeriods = ['morning', 'afternoon', 'evening', 'night'];
+    this._timeOfDayIndex = 0;
+    this.timeOfDay = 'morning';
+    this._timeOfDayTimer = 0;
+    this._timeOfDayInterval = 3600; // ~60s at 60fps per period
+
+    // Ambient bark state
+    this._barkCooldown = 0;
+    this._barkText = '';
+    this._barkNpc = null;
+    this._barkTimer = 0;
   }
 
   async init() {
@@ -110,7 +130,21 @@ class GameEngine {
    */
   _refreshRoomNpcs() {
     const roomId = this.scenes.currentRoomId;
-    this._currentRoomNpcs = roomId ? this.characters.getNpcsInRoom(roomId) : [];
+    this._currentRoomNpcs = roomId ? this.characters.getNpcsInRoom(roomId, this.timeOfDay) : [];
+  }
+
+  /**
+   * Play the BGM track assigned to a room (if any).
+   * Skips if the same track is already playing.
+   */
+  _playRoomMusic(roomId) {
+    if (!this.audio.initialized) return;
+    const track = this.content.getRoomMusic(roomId);
+    if (track && track.id !== this.audio._currentTrackId) {
+      this.audio.playTrack(track);
+    } else if (!track) {
+      this.audio.stopTrack();
+    }
   }
 
   /**
@@ -128,6 +162,19 @@ class GameEngine {
    * Update all game systems.
    */
   update() {
+    // Lazy-init audio on first click (browser autoplay policy)
+    if (this.input.clicked && !this.audio.initialized) {
+      this.audio.init();
+      // Start BGM for the current room
+      this._playRoomMusic(this.scenes.currentRoomId);
+    }
+
+    // Clear barks during dialogue/scripts so they don't freeze on screen
+    if (this.dialogue.active || this.scripts.isRunning()) {
+      this._barkTimer = 0;
+      this._barkNpc = null;
+    }
+
     // Don't process game input during dialogues or scripts
     if (this.dialogue.active) {
       this.dialogue.update(this.input, this.renderer);
@@ -146,6 +193,29 @@ class GameEngine {
 
     // Update walking
     this.walking.update();
+
+    // Footstep SFX while walking
+    if (this.walking.walking) {
+      this._footstepTimer++;
+      if (this._footstepTimer >= this._footstepInterval) {
+        this._footstepTimer = 0;
+        this.audio.playSfx('footstep');
+      }
+    } else {
+      this._footstepTimer = 0;
+    }
+
+    // Time of day cycling
+    this._timeOfDayTimer++;
+    if (this._timeOfDayTimer >= this._timeOfDayInterval) {
+      this._timeOfDayTimer = 0;
+      this._timeOfDayIndex = (this._timeOfDayIndex + 1) % this._timeOfDayPeriods.length;
+      this.timeOfDay = this._timeOfDayPeriods[this._timeOfDayIndex];
+      this._refreshRoomNpcs();
+    }
+
+    // Ambient bark system
+    this._updateBarks();
 
     // Message timer
     if (this.messageTimer > 0) {
@@ -168,6 +238,7 @@ class GameEngine {
     if (this.verbs.update(this.input)) {
       // Verb was selected, clear item selection
       this.inventory.selectedItem = null;
+      this.audio.playSfx('ui_click');
       return;
     }
 
@@ -397,11 +468,13 @@ class GameEngine {
     const walkY = exit.walkTo?.y || Math.min(exit.y + exit.height, 135);
 
     this.walking.walkTo(walkX, walkY, async () => {
+      this.audio.playSfx('door');
       await this.renderer.fadeOut();
       this.scenes.loadRoom(exit.target);
       this.walking.setPosition(exit.spawnX, exit.spawnY);
       this.verbs.selectedItem = null;
       this._refreshRoomNpcs();
+      this._playRoomMusic(exit.target);
       await this.renderer.fadeIn();
     });
   }
@@ -429,6 +502,7 @@ class GameEngine {
     }
 
     // Start the dialogue tree with game state for condition checking
+    this.audio.playSfx('talk');
     const gameState = { flags: this.flags, inventory: this.inventory };
     this.dialogue.start(npc.name, tree, (action) => {
       this._handleDialogueAction(action);
@@ -454,6 +528,7 @@ class GameEngine {
       const itemDef = this.content.getItem(action.addItem);
       if (itemDef) {
         this.inventory.addItem({ id: itemDef.id, name: itemDef.name });
+        this.audio.playSfx('pickup');
       }
       return;
     }
@@ -482,6 +557,7 @@ class GameEngine {
         const itemDef = this.content.getItem(action.item);
         if (itemDef) {
           this.inventory.addItem({ id: itemDef.id, name: itemDef.name });
+          this.audio.playSfx('pickup');
         }
         break;
       }
@@ -500,11 +576,13 @@ class GameEngine {
     return {
       say: (action) => {
         this.showMessage(action.text, 120);
+        this.audio.playSfx('talk');
       },
       add_item: (action) => {
         const itemDef = this.content.getItem(action.item);
         if (itemDef) {
           this.inventory.addItem({ id: itemDef.id, name: itemDef.name });
+          this.audio.playSfx('pickup');
         }
       },
       remove_item: (action) => {
@@ -640,14 +718,16 @@ class GameEngine {
     // Render room background
     this.scenes.renderBackground(this.renderer, this.assets);
 
-    // Render NPCs using CharacterGenerator
-    this._renderNpcs();
-
-    // Render player using unified CharacterGenerator
-    this.characters.drawProtagonist(this.renderer, this.walking.x, this.walking.y, this.walking.walking ? this.walking.frame : 0);
+    // Z-sorted rendering of props, NPCs, and protagonist
+    this._renderZSorted();
 
     // Render hotspot highlights (when hovering)
     this._renderHotspotHighlights();
+
+    // Render ambient NPC bark bubble
+    if (this._barkTimer > 0 && this._barkNpc) {
+      this._renderBark();
+    }
 
     // Message text (above UI panel)
     if (this.messageText) {
@@ -666,8 +746,9 @@ class GameEngine {
     // Render inventory
     this.inventory.render(this.renderer, this.assets);
 
-    // Save/Load buttons
+    // Save/Load buttons + time indicator
     this._renderSaveLoadButtons();
+    this._renderTimeOfDay();
 
     // Custom cursor
     this._renderCursor();
@@ -681,11 +762,76 @@ class GameEngine {
   }
 
   /**
-   * Render NPCs in the current room using CharacterGenerator.
+   * Z-sorted rendering of all scene entities: props, NPCs, protagonist.
+   * Entities are sorted by their bottom Y coordinate (+ optional zOffset).
    */
-  _renderNpcs() {
+  _renderZSorted() {
+    const renderables = [];
+
+    // Collect room props (visuals)
+    const room = this.scenes.getRoom();
+    if (room && room.visuals) {
+      for (const prop of room.visuals) {
+        const size = ProceduralAssets.getPropSize(prop.type, prop.variant);
+        renderables.push({
+          kind: 'prop',
+          data: prop,
+          sortY: prop.y + size.height + (prop.zOffset || 0),
+        });
+      }
+    }
+
+    // Collect NPCs
     for (const npc of this._currentRoomNpcs) {
-      this.characters.drawNpc(this.renderer, npc);
+      renderables.push({
+        kind: 'npc',
+        data: npc,
+        sortY: npc.y + npc.height + (npc.zOffset || 0),
+      });
+    }
+
+    // Collect protagonist
+    const protoTraits = this.characters.protagonist?.traits;
+    const protoHeight = protoTraits
+      ? CharacterGenerator.getCharacterHeight(protoTraits.bodyType)
+      : 30;
+    renderables.push({
+      kind: 'protagonist',
+      sortY: this.walking.y + protoHeight,
+    });
+
+    // Sort by sortY ascending (back to front)
+    renderables.sort((a, b) => a.sortY - b.sortY);
+
+    // Draw in order
+    for (const r of renderables) {
+      switch (r.kind) {
+        case 'prop':
+          ProceduralAssets.drawProp(this.renderer, r.data.type, r.data.x, r.data.y, r.data.variant);
+          break;
+        case 'npc':
+          this.characters.drawNpc(this.renderer, r.data, 0, r.data.facing);
+          break;
+        case 'protagonist': {
+          // Compute protagonist frame: walking → walk frame, idle → idle frame, standing → 0
+          let frame;
+          if (this.walking.walking) {
+            frame = this.walking.frame;
+          } else if (this.walking.isIdle) {
+            frame = 4 + this.walking.idleFrame;
+          } else {
+            frame = 0;
+          }
+          this.characters.drawProtagonist(
+            this.renderer,
+            this.walking.x,
+            this.walking.y,
+            frame,
+            this.walking.direction
+          );
+          break;
+        }
+      }
     }
   }
 
@@ -763,6 +909,81 @@ class GameEngine {
   }
 
   /**
+   * Render time-of-day indicator.
+   */
+  _renderTimeOfDay() {
+    const colors = { morning: '#ffdd57', afternoon: '#ffaa33', evening: '#cc7733', night: '#6688cc' };
+    const label = this.timeOfDay.charAt(0).toUpperCase() + this.timeOfDay.slice(1);
+    const color = colors[this.timeOfDay] || '#888';
+    this.renderer.drawTextHiRes(label, 280, 189, { size: 6, color, shadow: false });
+  }
+
+  /**
+   * Update ambient bark system — periodically show speech bubbles over NPCs.
+   */
+  _updateBarks() {
+    // Count down active bark display
+    if (this._barkTimer > 0) {
+      this._barkTimer--;
+      if (this._barkTimer <= 0) {
+        this._barkText = '';
+        this._barkNpc = null;
+      }
+      return; // Don't start new bark while one is showing
+    }
+
+    // Count down cooldown between barks
+    if (this._barkCooldown > 0) {
+      this._barkCooldown--;
+      return;
+    }
+
+    // Pick a random NPC with barks in the current room
+    const npcsWithBarks = this._currentRoomNpcs.filter(npc => {
+      const npcDef = npc._npcDef;
+      return npcDef && npcDef.barks && npcDef.barks.length > 0;
+    });
+
+    if (npcsWithBarks.length === 0) {
+      this._barkCooldown = 300; // Check again in ~5s
+      return;
+    }
+
+    const npc = npcsWithBarks[Math.floor(Math.random() * npcsWithBarks.length)];
+    const barks = npc._npcDef.barks;
+    this._barkText = barks[Math.floor(Math.random() * barks.length)];
+    this._barkNpc = npc;
+    this._barkTimer = 180; // Show for ~3s
+    this._barkCooldown = 600 + Math.floor(Math.random() * 1200); // 10-30s until next
+  }
+
+  /**
+   * Render a speech bubble above the barking NPC.
+   */
+  _renderBark() {
+    const npc = this._barkNpc;
+    const text = this._barkText;
+    if (!npc || !text) return;
+
+    const bubbleX = Math.max(4, Math.min(npc.x - 20, 320 - 80));
+    const bubbleY = Math.max(4, npc.y - 18);
+    const maxW = 72;
+
+    // Background bubble
+    const textHeight = this.renderer.measureTextWrappedHiRes(text, maxW, { size: 6, lineHeight: 8 });
+    this.renderer.drawRect(bubbleX - 2, bubbleY - 2, maxW + 4, textHeight + 4, 'rgba(255,255,255,0.9)');
+    this.renderer.drawRectOutline(bubbleX - 2, bubbleY - 2, maxW + 4, textHeight + 4, '#333');
+
+    // Tail pointer
+    this.renderer.drawRect(npc.x + 4, bubbleY + textHeight + 2, 4, 3, 'rgba(255,255,255,0.9)');
+
+    // Text
+    this.renderer.drawTextWrappedHiRes(text, bubbleX, bubbleY, maxW, {
+      size: 6, lineHeight: 8, color: '#222',
+    });
+  }
+
+  /**
    * Render custom cursor.
    */
   _renderCursor() {
@@ -819,6 +1040,7 @@ class GameEngine {
       flags: { ...this.flags },
       hiddenHotspots: this._getHiddenHotspots(),
       dialogueExhaustion: this.dialogue.getExhaustionState(),
+      timeOfDayIndex: this._timeOfDayIndex,
     };
     this.save.save(state);
   }
@@ -853,6 +1075,14 @@ class GameEngine {
     // Restore dialogue exhaustion
     if (state.dialogueExhaustion) {
       this.dialogue.restoreExhaustionState(state.dialogueExhaustion);
+    }
+
+    // Restore time of day
+    if (state.timeOfDayIndex !== undefined) {
+      this._timeOfDayIndex = state.timeOfDayIndex;
+      this.timeOfDay = this._timeOfDayPeriods[this._timeOfDayIndex];
+      this._timeOfDayTimer = 0;
+      this._refreshRoomNpcs();
     }
   }
 

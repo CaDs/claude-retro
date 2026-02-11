@@ -28,6 +28,7 @@ game:
     give: "I don't think they want that."
     talk_to: "I don't think talking to that will help."
 
+  music: music.yaml
   protagonist: protagonist.yaml
   items: items.yaml
   npcs: npcs.yaml

@@ -541,4 +541,230 @@ export class ProceduralAssets {
 
     return canvas;
   }
+
+  // ========================================================
+  //  PROP REGISTRY — Runtime-drawn scene props for Z-sorting
+  // ========================================================
+
+  static PROP_REGISTRY = {
+    tree:     (ctx, x, y, variant) => ProceduralAssets._drawPropTree(ctx, x, y, variant),
+    rock:     (ctx, x, y, variant) => ProceduralAssets._drawPropRock(ctx, x, y, variant),
+    bush:     (ctx, x, y, variant) => ProceduralAssets._drawPropBush(ctx, x, y, variant),
+    barrel:   (ctx, x, y, variant) => ProceduralAssets._drawPropBarrel(ctx, x, y, variant),
+    crate:    (ctx, x, y, variant) => ProceduralAssets._drawPropCrate(ctx, x, y, variant),
+    fence:    (ctx, x, y, variant) => ProceduralAssets._drawPropFence(ctx, x, y, variant),
+    sign:     (ctx, x, y, variant) => ProceduralAssets._drawPropSign(ctx, x, y, variant),
+    mushroom: (ctx, x, y, variant) => ProceduralAssets._drawPropMushroom(ctx, x, y, variant),
+    table:    (ctx, x, y, variant) => ProceduralAssets._drawPropTable(ctx, x, y, variant),
+    lamp:     (ctx, x, y, variant) => ProceduralAssets._drawPropLamp(ctx, x, y, variant),
+  };
+
+  static PROP_SIZES = {
+    tree:     { default: { width: 24, height: 40 }, oak: { width: 28, height: 45 }, pine: { width: 18, height: 48 }, dead: { width: 16, height: 35 } },
+    rock:     { default: { width: 16, height: 10 }, large: { width: 24, height: 14 }, small: { width: 10, height: 7 } },
+    bush:     { default: { width: 20, height: 12 }, berry: { width: 22, height: 14 } },
+    barrel:   { default: { width: 14, height: 18 } },
+    crate:    { default: { width: 14, height: 14 }, large: { width: 18, height: 18 } },
+    fence:    { default: { width: 30, height: 16 } },
+    sign:     { default: { width: 14, height: 20 } },
+    mushroom: { default: { width: 8, height: 8 }, cluster: { width: 16, height: 10 } },
+    table:    { default: { width: 30, height: 16 }, small: { width: 20, height: 14 } },
+    lamp:     { default: { width: 8, height: 22 } },
+  };
+
+  /**
+   * Draw a prop directly onto the renderer's buffer context.
+   * @param {object} renderer - Renderer with bufCtx
+   * @param {string} type - Prop type name
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   * @param {string} variant - Optional variant name
+   */
+  static drawProp(renderer, type, x, y, variant) {
+    const drawFn = this.PROP_REGISTRY[type];
+    if (!drawFn) return;
+    drawFn(renderer.bufCtx, x, y, variant || 'default');
+  }
+
+  /**
+   * Get the size of a prop type (for Z-sort calculations).
+   * @param {string} type - Prop type name
+   * @param {string} variant - Optional variant name
+   * @returns {{ width: number, height: number }}
+   */
+  static getPropSize(type, variant) {
+    const sizes = this.PROP_SIZES[type];
+    if (!sizes) return { width: 16, height: 16 };
+    return sizes[variant || 'default'] || sizes.default || { width: 16, height: 16 };
+  }
+
+  // --- Prop draw methods ---
+
+  static _drawPropTree(ctx, x, y, variant) {
+    switch (variant) {
+      case 'pine': {
+        // Tall conifer
+        const trunkColor = '#3a2a15';
+        const leafColor = '#1a4a1a';
+        this._rect(ctx, x + 7, y + 20, 4, 28, trunkColor);
+        // Triangular layers
+        this._rect(ctx, x + 2, y + 15, 14, 8, leafColor);
+        this._rect(ctx, x + 3, y + 8, 12, 10, '#1a5a1a');
+        this._rect(ctx, x + 5, y + 2, 8, 9, '#225522');
+        this._rect(ctx, x + 7, y, 4, 5, '#2a6a2a');
+        break;
+      }
+      case 'dead': {
+        // Bare tree
+        const barkColor = '#4a3a1a';
+        this._rect(ctx, x + 6, y + 10, 4, 25, barkColor);
+        // Branches
+        this._rect(ctx, x + 2, y + 12, 6, 2, barkColor);
+        this._rect(ctx, x + 9, y + 8, 6, 2, barkColor);
+        this._rect(ctx, x, y + 6, 5, 2, '#3a2a0a');
+        this._rect(ctx, x + 11, y + 3, 5, 2, '#3a2a0a');
+        break;
+      }
+      case 'oak':
+      default: {
+        // Leafy oak tree
+        const trunkColor = '#3a2a15';
+        const leafColor = '#2a5a2a';
+        this._rect(ctx, x + 10, y + 20, 5, 25, trunkColor);
+        this._rect(ctx, x + 8, y + 22, 3, 15, '#352515');
+        // Canopy
+        this._drawTreeCanopy(ctx, x, y, 28, 22, leafColor);
+        this._drawTreeCanopy(ctx, x + 4, y - 3, 20, 12, '#226622');
+        break;
+      }
+    }
+  }
+
+  static _drawPropRock(ctx, x, y, variant) {
+    const isLarge = variant === 'large';
+    const isSmall = variant === 'small';
+    if (isLarge) {
+      this._rect(ctx, x + 2, y + 2, 20, 10, '#6a6a6a');
+      this._rect(ctx, x, y + 4, 24, 8, '#7a7a7a');
+      this._rect(ctx, x + 4, y, 16, 6, '#888');
+      // Highlight
+      this._rect(ctx, x + 6, y + 1, 4, 2, '#999');
+    } else if (isSmall) {
+      this._rect(ctx, x + 1, y + 2, 8, 4, '#6a6a6a');
+      this._rect(ctx, x, y + 3, 10, 3, '#7a7a7a');
+      this._rect(ctx, x + 2, y, 6, 4, '#888');
+    } else {
+      this._rect(ctx, x + 1, y + 2, 14, 7, '#6a6a6a');
+      this._rect(ctx, x, y + 3, 16, 6, '#7a7a7a');
+      this._rect(ctx, x + 3, y, 10, 5, '#888');
+      this._rect(ctx, x + 5, y + 1, 3, 2, '#999');
+    }
+  }
+
+  static _drawPropBush(ctx, x, y, variant) {
+    const isBerry = variant === 'berry';
+    const leafColor = '#2a6a2a';
+    this._rect(ctx, x + 2, y + 2, 16, 8, leafColor);
+    this._rect(ctx, x, y + 4, 20, 6, '#3a7a3a');
+    this._rect(ctx, x + 4, y, 12, 6, leafColor);
+    // Highlight
+    this._rect(ctx, x + 6, y + 1, 4, 2, '#4a8a4a');
+    if (isBerry) {
+      // Red berries
+      this._pixel(ctx, x + 5, y + 3, '#cc3333');
+      this._pixel(ctx, x + 9, y + 2, '#cc3333');
+      this._pixel(ctx, x + 14, y + 4, '#cc3333');
+      this._pixel(ctx, x + 7, y + 6, '#cc3333');
+      this._pixel(ctx, x + 12, y + 5, '#cc3333');
+    }
+  }
+
+  static _drawPropBarrel(ctx, x, y) {
+    this._rect(ctx, x + 1, y + 2, 12, 14, '#5a3a15');
+    this._rect(ctx, x, y + 4, 14, 2, '#6a4a25'); // ring
+    this._rect(ctx, x, y + 12, 14, 2, '#6a4a25'); // ring
+    this._rect(ctx, x + 2, y, 10, 3, '#6a4a25');  // top
+    // Stave lines
+    this._rect(ctx, x + 5, y + 2, 1, 14, '#4a2a0a');
+    this._rect(ctx, x + 9, y + 2, 1, 14, '#4a2a0a');
+  }
+
+  static _drawPropCrate(ctx, x, y, variant) {
+    const size = variant === 'large' ? 18 : 14;
+    this._rect(ctx, x, y, size, size, '#6a5a3a');
+    this._rect(ctx, x, y, size, 2, '#7a6a4a');    // top edge
+    this._rect(ctx, x, y, 2, size, '#5a4a2a');    // left edge
+    // Cross planks
+    this._rect(ctx, x + 2, y + Math.floor(size / 2) - 1, size - 4, 2, '#5a4a2a');
+    this._rect(ctx, x + Math.floor(size / 2) - 1, y + 2, 2, size - 4, '#5a4a2a');
+  }
+
+  static _drawPropFence(ctx, x, y) {
+    // Horizontal rails
+    this._rect(ctx, x, y + 4, 30, 2, '#6a5a3a');
+    this._rect(ctx, x, y + 10, 30, 2, '#6a5a3a');
+    // Vertical posts
+    this._rect(ctx, x + 1, y, 3, 16, '#5a4a2a');
+    this._rect(ctx, x + 13, y, 3, 16, '#5a4a2a');
+    this._rect(ctx, x + 26, y, 3, 16, '#5a4a2a');
+  }
+
+  static _drawPropSign(ctx, x, y) {
+    // Post
+    this._rect(ctx, x + 6, y + 8, 3, 12, '#4a3a1a');
+    // Sign board
+    this._rect(ctx, x, y, 14, 10, '#5a4a2a');
+    this._rect(ctx, x + 1, y + 1, 12, 8, '#6a5a3a');
+    // Text lines
+    this._rect(ctx, x + 3, y + 3, 8, 1, '#3a2a1a');
+    this._rect(ctx, x + 3, y + 6, 6, 1, '#3a2a1a');
+  }
+
+  static _drawPropMushroom(ctx, x, y, variant) {
+    if (variant === 'cluster') {
+      // Cluster of mushrooms
+      const positions = [[0, 4], [5, 2], [10, 3], [7, 6]];
+      const capColors = ['#cc4444', '#dd6644', '#cc5555', '#ee5533'];
+      for (let i = 0; i < positions.length; i++) {
+        const [mx, my] = positions[i];
+        this._rect(ctx, x + mx + 1, y + my + 2, 3, 3, '#ddd'); // stem
+        this._rect(ctx, x + mx, y + my, 5, 3, capColors[i]);    // cap
+        this._pixel(ctx, x + mx + 1, y + my, '#fff');            // spot
+      }
+    } else {
+      // Single mushroom
+      this._rect(ctx, x + 3, y + 4, 3, 4, '#ddd');  // stem
+      this._rect(ctx, x, y, 8, 5, '#cc4444');        // cap
+      this._pixel(ctx, x + 2, y + 1, '#fff');         // spots
+      this._pixel(ctx, x + 5, y + 1, '#fff');
+    }
+  }
+
+  static _drawPropTable(ctx, x, y, variant) {
+    const w = variant === 'small' ? 20 : 30;
+    const h = variant === 'small' ? 14 : 16;
+    // Table top
+    this._rect(ctx, x, y, w, 4, '#6a4a25');
+    this._rect(ctx, x + 1, y + 1, w - 2, 2, '#7a5a35');
+    // Legs
+    this._rect(ctx, x + 2, y + 4, 3, h - 4, '#5a3a15');
+    this._rect(ctx, x + w - 5, y + 4, 3, h - 4, '#5a3a15');
+  }
+
+  static _drawPropLamp(ctx, x, y) {
+    // Post
+    this._rect(ctx, x + 3, y + 6, 2, 16, '#555');
+    // Base
+    this._rect(ctx, x + 1, y + 20, 6, 2, '#666');
+    // Lamp housing
+    this._rect(ctx, x + 1, y + 2, 6, 5, '#555');
+    this._rect(ctx, x + 2, y + 3, 4, 3, '#ffaa44');
+    // Top
+    this._rect(ctx, x + 2, y, 4, 3, '#666');
+    // Glow
+    ctx.fillStyle = 'rgba(255, 200, 100, 0.1)';
+    ctx.beginPath();
+    ctx.arc(x + 4, y + 5, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
