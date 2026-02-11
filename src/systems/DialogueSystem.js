@@ -144,7 +144,7 @@ export class DialogueSystem {
   /**
    * Update the dialogue system each frame.
    */
-  update(input) {
+  update(input, renderer) {
     if (!this.active) return;
 
     // Typewriter text reveal
@@ -170,7 +170,7 @@ export class DialogueSystem {
       this._visibleChoices = visibleChoices;
       // Handle choice selection
       if (input.clicked) {
-        const choiceIdx = this._getChoiceAtClick(input.clickY);
+        const choiceIdx = this._getChoiceAtClick(input.clickY, renderer);
         if (choiceIdx >= 0 && choiceIdx < visibleChoices.length) {
           const choice = visibleChoices[choiceIdx];
           // Execute choice actions (DSL: array)
@@ -208,10 +208,17 @@ export class DialogueSystem {
   /**
    * Determine which choice was clicked based on Y position.
    */
-  _getChoiceAtClick(clickY) {
+  _getChoiceAtClick(clickY, renderer) {
     const choices = this._visibleChoices || this.currentNode?.choices || [];
     if (!choices.length) return -1;
-    const startY = 70;
+
+    // Dynamically calculate startY based on text height
+    let startY = 70;
+    if (renderer) {
+      const textHeight = renderer.measureTextWrappedHiRes(this.displayText, 280, { size: 8, lineHeight: 12 });
+      startY = 24 + textHeight + 12; // 24 (top margin) + text height + 12 (padding)
+    }
+
     const lineHeight = 14;
     for (let i = 0; i < choices.length; i++) {
       const cy = startY + i * lineHeight;
@@ -272,18 +279,23 @@ export class DialogueSystem {
     });
 
     // Speech text
-    renderer.drawTextWrappedHiRes(this.displayText, 20, 24, 280, {
-      color: '#fff', size: 8, lineHeight: 12
-    });
+    const textOptions = { color: '#fff', size: 8, lineHeight: 12 };
+    renderer.drawTextWrappedHiRes(this.displayText, 20, 24, 280, textOptions);
 
     // Choices
     const visibleChoices = this._visibleChoices || [];
     if (this.waitingForChoice && visibleChoices.length > 0) {
-      const startY = 70;
+      // Calculate dynamic start Y based on text height
+      const textHeight = renderer.measureTextWrappedHiRes(this.displayText, 280, textOptions);
+      const startY = 24 + textHeight + 12; 
       const lineHeight = 14;
 
       for (let i = 0; i < visibleChoices.length; i++) {
         const cy = startY + i * lineHeight;
+        
+        // Ensure choice is within screen bounds (basic clipping)
+        if (cy + lineHeight > 135) continue; 
+
         const isHovered = input.mouseY >= cy && input.mouseY < cy + lineHeight
           && input.mouseX >= 20 && input.mouseX < 300;
 

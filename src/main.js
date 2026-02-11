@@ -130,7 +130,7 @@ class GameEngine {
   update() {
     // Don't process game input during dialogues or scripts
     if (this.dialogue.active) {
-      this.dialogue.update(this.input);
+      this.dialogue.update(this.input, this.renderer);
       return;
     }
 
