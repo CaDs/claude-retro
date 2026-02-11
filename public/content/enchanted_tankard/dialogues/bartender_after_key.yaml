@@ -1,0 +1,19 @@
+dialogue:
+  id: bartender_after_key
+  startNode: start
+
+  idleLines:
+    - "The cabinet's right there! What are you waiting for?"
+    - "I'm starting to think you just like chatting with old Gruff."
+    - "You know, the tankard won't fetch itself."
+
+  nodes:
+    start:
+      text: "You already have the key, squire! The cabinet's right there. Help yourself to the tankard."
+      choices:
+        - text: "Right, thanks!"
+          next: end
+
+    end:
+      text: "Good luck out there!"
+      exhausted: true

@@ -1,0 +1,54 @@
+npcs:
+  - id: bartender
+    name: "Bartender Gruff"
+    traits:
+      bodyType: stocky
+      gender: male
+      skinTone: tan
+      hairStyle: bald
+      hairColor: brown
+      facial: mustache
+      clothing: apron
+      clothingColor: brown
+      accessory: none
+
+    placements:
+      - room: tavern
+        position: { x: 165, y: 52 }
+        size: { width: 20, height: 30 }
+        walkTo: { x: 160, y: 100 }
+
+    dialogue: bartender
+    dialogueOverrides:
+      - condition: { or: [{ hasItem: old_key }, { hasFlag: got_tankard }] }
+        dialogue: bartender_after_key
+
+    responses:
+      look_at: "A burly man with a magnificent beard. He polishes a glass with practiced ease."
+      pick_up: "I don't think he'd appreciate that."
+      use: "I should talk to him instead."
+
+  - id: hermit
+    name: "Old Hermit"
+    traits:
+      bodyType: slim
+      gender: female
+      skinTone: pale
+      hairStyle: long
+      hairColor: gray
+      clothing: robe
+      clothingColor: green
+      accessory: hood
+
+    placements:
+      - room: forest_path
+        position: { x: 120, y: 60 }
+        size: { width: 20, height: 30 }
+        walkTo: { x: 130, y: 105 }
+
+    dialogue: hermit
+
+    responses:
+      look_at: "An old woman wrapped in a green shawl. Her eyes seem to know things."
+      pick_up: "I don't think she'd appreciate being picked up."
+      use: "I should talk to her instead."

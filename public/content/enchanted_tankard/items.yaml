@@ -1,0 +1,61 @@
+items:
+  - id: gold_coin
+    name: "Gold Coin"
+    description: "A shiny gold coin with a dragon engraved on one side."
+    icon: { generator: gold_coin }
+    useOn:
+      bartender: puzzle
+      well: "I'm not throwing money down a well."
+    useDefault: "I can't spend that here."
+    responses:
+      look_at: "A shiny gold coin with a dragon engraved on one side."
+
+  - id: old_key
+    name: "Old Key"
+    description: "A rusty iron key. It looks like it opens something behind the bar."
+    icon: { generator: old_key }
+    useOn:
+      cabinet: puzzle
+    useDefault: "This key doesn't fit that."
+    responses:
+      look_at: "A rusty iron key. It looks like it opens something behind the bar."
+
+  - id: mysterious_note
+    name: "Mysterious Note"
+    description: "A crumpled note that reads: \"The hermit knows the way, but speaks only in riddles.\""
+    icon: { generator: mysterious_note }
+    useDefault: "I can't use the note on that."
+    responses:
+      look_at: "A crumpled note that reads: \"The hermit knows the way, but speaks only in riddles.\""
+
+  - id: rope
+    name: "Rope"
+    description: "A sturdy hempen rope. About ten feet long."
+    icon: { generator: rope }
+    useOn:
+      well: puzzle
+      bartender: "He doesn't need a rope."
+      hermit: "She waves it away dismissively."
+    useDefault: "I can't use the rope on that."
+    responses:
+      look_at: "A sturdy hempen rope. About ten feet long."
+      use: "I should use this on something specific."
+
+  - id: enchanted_tankard
+    name: "Enchanted Tankard"
+    description: "A magnificent golden tankard that glows faintly with arcane runes."
+    icon: { generator: enchanted_tankard }
+    useDefault: "I shouldn't waste the tankard's magic on that."
+    responses:
+      look_at: "A magnificent golden tankard that glows faintly with arcane runes."
+
+  - id: bucket
+    name: "Bucket"
+    description: "A wooden bucket. It has seen better days."
+    icon: { generator: bucket }
+    useOn:
+      well: puzzle
+      bartender: "He's got his own bucket, thanks."
+    useDefault: "I can't use the bucket on that."
+    responses:
+      look_at: "A wooden bucket. It has seen better days."

@@ -1,0 +1,63 @@
+room:
+  id: tavern
+  name: "The Rusty Dragon Tavern"
+  bgColor: "#3a2a1a"
+  description: "A warm, dimly lit tavern. The smell of ale and woodsmoke fills the air."
+
+  background:
+    type: procedural
+    generator: tavern
+
+  walkableArea:
+    rects:
+      - { x: 20, y: 95, width: 280, height: 45 }
+
+  hotspots:
+    - id: bar_counter
+      name: "Bar Counter"
+      rect: { x: 100, y: 60, width: 120, height: 30 }
+      walkTo: { x: 160, y: 100 }
+      responses:
+        look_at: "A well-worn oaken bar counter. Many a tale has been told here."
+        use: "I should talk to the bartender instead."
+
+    - id: tankard_shelf
+      name: "High Shelf"
+      rect: { x: 140, y: 20, width: 40, height: 25 }
+      walkTo: { x: 160, y: 100 }
+      responses:
+        look_at: "A high shelf behind the bar. I can see a glowing tankard up there! That must be the Enchanted Tankard!"
+        pick_up: "The shelf is too high, and the bartender is watching. I need a key to the cabinet."
+        use: "I can't reach it directly."
+
+    - id: cabinet
+      name: "Cabinet"
+      rect: { x: 230, y: 30, width: 30, height: 55 }
+      walkTo: { x: 230, y: 100 }
+      responses:
+        look_at: "A locked wooden cabinet behind the bar. Something valuable must be inside."
+        open: "It's locked tight."
+
+    - id: fireplace
+      name: "Fireplace"
+      rect: { x: 10, y: 40, width: 45, height: 50 }
+      walkTo: { x: 40, y: 100 }
+      responses:
+        look_at: "A crackling fireplace. The warmth is very welcome."
+        use: "I'd rather not stick my hand in there."
+
+    - id: barrel
+      name: "Ale Barrel"
+      rect: { x: 270, y: 75, width: 30, height: 35 }
+      walkTo: { x: 260, y: 110 }
+      responses:
+        look_at: "A large barrel of ale. It smells strong."
+        open: "Better not. The bartender would not be happy."
+
+  exits:
+    - id: to_village
+      rect: { x: 0, y: 70, width: 20, height: 60 }
+      target: village_square
+      spawnAt: { x: 270, y: 115 }
+      name: "Village Square"
+      lookAt: "The door back to the village square."

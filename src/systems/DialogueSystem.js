@@ -1,5 +1,6 @@
 /**
  * DialogueSystem — Branching conversation tree with choice selection.
+ * Supports DSL dialogue format with conditions, multi-actions, and idle lines.
  */
 export class DialogueSystem {
   constructor() {
@@ -17,21 +18,59 @@ export class DialogueSystem {
     this.waitingForClick = false;
     this.onComplete = null;
     this.onAction = null; // Callback for game actions triggered by dialogue
+
+    // Exhaustion / idle line tracking
+    this._exhaustedNpcs = {};  // npcId → true
+    this._idleLineIndex = {};  // npcId → next idle line index
+  }
+
+  /**
+   * Check if an NPC's dialogue is exhausted and show an idle line instead.
+   * Returns true if an idle line was shown (caller should skip starting normal dialogue).
+   */
+  tryIdleLine(npcName, npcId, tree) {
+    if (!this._exhaustedNpcs[npcId]) return false;
+    if (!tree || !tree.idleLines || tree.idleLines.length === 0) return false;
+
+    // Get next idle line (round-robin)
+    const idx = this._idleLineIndex[npcId] || 0;
+    const line = tree.idleLines[idx];
+    this._idleLineIndex[npcId] = (idx + 1) % tree.idleLines.length;
+
+    // Show as a simple one-shot dialogue
+    this.active = true;
+    this.dialogueTree = { nodes: { idle: { text: line } } };
+    this.npcName = npcName;
+    this.onAction = null;
+    this.onComplete = null;
+    this.goToNode('idle');
+    return true;
+  }
+
+  /**
+   * Reset exhaustion for an NPC (e.g., when game state changes via dialogue override).
+   */
+  resetExhaustion(npcId) {
+    delete this._exhaustedNpcs[npcId];
   }
 
   /**
    * Start a dialogue tree.
    * @param {string} npcName - NPC's display name
+   * @param {string} npcId - NPC's unique ID (for exhaustion tracking)
    * @param {Object} tree - Dialogue tree definition
    * @param {Function} onAction - Callback for dialogue actions
    * @param {Function} onComplete - Called when dialogue ends
+   * @param {Object} [gameState] - { flags, inventory } for condition checking
    */
-  start(npcName, tree, onAction, onComplete) {
+  start(npcName, tree, onAction, onComplete, npcId, gameState) {
     this.active = true;
     this.dialogueTree = tree;
     this.npcName = npcName;
     this.onAction = onAction;
     this.onComplete = onComplete;
+    this._currentNpcId = npcId || null;
+    this._gameState = gameState || null;
     this.goToNode(tree.startNode || 'start');
   }
 
@@ -55,10 +94,51 @@ export class DialogueSystem {
       this.waitingForChoice = false;
     }
 
-    // Execute any actions on entering this node
+    // Execute actions on entering this node (DSL format: array of actions)
+    if (node.actions && this.onAction) {
+      for (const action of node.actions) {
+        this.onAction(action);
+      }
+    }
+    // Legacy format: single action object
     if (node.action && this.onAction) {
       this.onAction(node.action);
     }
+
+    // Track exhaustion
+    if (node.exhausted && this._currentNpcId) {
+      this._exhaustedNpcs[this._currentNpcId] = true;
+    }
+  }
+
+  /**
+   * Get visible choices, filtering by conditions.
+   */
+  _getVisibleChoices() {
+    if (!this.currentNode || !this.currentNode.choices) return [];
+    if (!this._gameState) return this.currentNode.choices;
+
+    return this.currentNode.choices.filter(choice => {
+      if (!choice.condition) return true;
+      return this._evaluateCondition(choice.condition);
+    });
+  }
+
+  /**
+   * Evaluate a condition against game state.
+   */
+  _evaluateCondition(cond) {
+    if (!cond || !this._gameState) return true;
+    const { flags, inventory } = this._gameState;
+
+    if (cond.hasFlag) return !!(flags && flags[cond.hasFlag]);
+    if (cond.notFlag) return !(flags && flags[cond.notFlag]);
+    if (cond.hasItem) return !!(inventory && inventory.hasItem(cond.hasItem));
+    if (cond.and) return cond.and.every(c => this._evaluateCondition(c));
+    if (cond.or) return cond.or.some(c => this._evaluateCondition(c));
+    if (cond.not) return !this._evaluateCondition(cond.not);
+
+    return true;
   }
 
   /**
@@ -84,13 +164,22 @@ export class DialogueSystem {
     }
 
     // Text fully revealed — show choices or wait for click
-    if (this.currentNode.choices && this.currentNode.choices.length > 0) {
+    const visibleChoices = this._getVisibleChoices();
+    if (visibleChoices.length > 0) {
       this.waitingForChoice = true;
+      this._visibleChoices = visibleChoices;
       // Handle choice selection
       if (input.clicked) {
         const choiceIdx = this._getChoiceAtClick(input.clickY);
-        if (choiceIdx >= 0 && choiceIdx < this.currentNode.choices.length) {
-          const choice = this.currentNode.choices[choiceIdx];
+        if (choiceIdx >= 0 && choiceIdx < visibleChoices.length) {
+          const choice = visibleChoices[choiceIdx];
+          // Execute choice actions (DSL: array)
+          if (choice.actions && this.onAction) {
+            for (const action of choice.actions) {
+              this.onAction(action);
+            }
+          }
+          // Legacy: single action
           if (choice.action && this.onAction) {
             this.onAction(choice.action);
           }
@@ -120,10 +209,11 @@ export class DialogueSystem {
    * Determine which choice was clicked based on Y position.
    */
   _getChoiceAtClick(clickY) {
-    if (!this.currentNode.choices) return -1;
+    const choices = this._visibleChoices || this.currentNode?.choices || [];
+    if (!choices.length) return -1;
     const startY = 70;
     const lineHeight = 14;
-    for (let i = 0; i < this.currentNode.choices.length; i++) {
+    for (let i = 0; i < choices.length; i++) {
       const cy = startY + i * lineHeight;
       if (clickY >= cy && clickY < cy + lineHeight) {
         return i;
@@ -140,8 +230,30 @@ export class DialogueSystem {
     this.dialogueTree = null;
     this.currentNode = null;
     this.choices = [];
+    this._visibleChoices = null;
+    this._gameState = null;
     if (this.onComplete) {
       this.onComplete();
+    }
+  }
+
+  /**
+   * Get exhaustion state for save/load.
+   */
+  getExhaustionState() {
+    return {
+      exhaustedNpcs: { ...this._exhaustedNpcs },
+      idleLineIndex: { ...this._idleLineIndex },
+    };
+  }
+
+  /**
+   * Restore exhaustion state from save.
+   */
+  restoreExhaustionState(state) {
+    if (state) {
+      this._exhaustedNpcs = state.exhaustedNpcs || {};
+      this._idleLineIndex = state.idleLineIndex || {};
     }
   }
 
@@ -165,17 +277,18 @@ export class DialogueSystem {
     });
 
     // Choices
-    if (this.waitingForChoice && this.currentNode.choices) {
+    const visibleChoices = this._visibleChoices || [];
+    if (this.waitingForChoice && visibleChoices.length > 0) {
       const startY = 70;
       const lineHeight = 14;
 
-      for (let i = 0; i < this.currentNode.choices.length; i++) {
+      for (let i = 0; i < visibleChoices.length; i++) {
         const cy = startY + i * lineHeight;
         const isHovered = input.mouseY >= cy && input.mouseY < cy + lineHeight
           && input.mouseX >= 20 && input.mouseX < 300;
 
         renderer.drawTextHiRes(
-          `${i + 1}. ${this.currentNode.choices[i].text}`,
+          `${i + 1}. ${visibleChoices[i].text}`,
           24, cy,
           {
             color: isHovered ? '#ffdd57' : '#a0c0ff',

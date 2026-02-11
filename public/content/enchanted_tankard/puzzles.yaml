@@ -1,0 +1,80 @@
+puzzles:
+  # === ACT 1: Gathering ===
+
+  # LOCK: Rope is on the stall → KEY: Pick it up
+  - id: get_rope
+    trigger: { verb: pick_up, target: rope_on_stall }
+    actions:
+      - say: "I'll take this rope. Might come in handy."
+      - addItem: rope
+      - hideHotspot: { room: village_square, id: rope_on_stall }
+
+  # LOCK: Bucket is on the stump → KEY: Pick it up
+  - id: get_bucket
+    trigger: { verb: pick_up, target: bucket_stump }
+    actions:
+      - say: "This bucket could be useful."
+      - addItem: bucket
+      - hideHotspot: { room: forest_path, id: bucket_stump }
+
+  # === ACT 2: The Well ===
+
+  # LOCK: Gold coin is in the well → KEY: Use rope on well
+  - id: rope_in_well
+    trigger: { verb: use, item: rope, target: well }
+    conditions:
+      - hasItem: rope
+    actions:
+      - say: "I'll lower the rope into the well..."
+      - wait: 40
+      - say: "I can feel something! Let me pull it up..."
+      - wait: 30
+      - say: "A gold coin! It was stuck in a crack between the stones."
+      - addItem: gold_coin
+      - removeItem: rope
+      - setFlag: got_coin_from_well
+    failText: "I need something to lower into the well first."
+
+  # Alternative: bucket on well (wrong key, helpful feedback)
+  - id: bucket_in_well
+    trigger: { verb: use, item: bucket, target: well }
+    conditions:
+      - hasItem: bucket
+    actions:
+      - say: "I lower the bucket into the well..."
+      - wait: 40
+      - say: "Just water. I need something thinner to reach into the cracks."
+
+  # === ACT 3: The Bartender Trade ===
+  # (Handled via dialogue actions — see dialogues/bartender.yaml)
+
+  # === ACT 4: The Cabinet ===
+
+  # LOCK: Enchanted tankard in locked cabinet → KEY: Use old_key on cabinet
+  - id: open_cabinet
+    trigger: { verb: use, item: old_key, target: cabinet }
+    conditions:
+      - hasItem: old_key
+    actions:
+      - say: "The key fits! Let me open the cabinet..."
+      - wait: 30
+      - say: "The Enchanted Tankard! It glows with a warm, golden light."
+      - addItem: enchanted_tankard
+      - removeItem: old_key
+      - setFlag: got_tankard
+      - wait: 20
+      - say: "Now I can present this to the Knight's Guild!"
+    failText: "The cabinet is locked. I need a key."
+
+  # === ENDING ===
+
+  # Look at notice board after getting the tankard
+  - id: quest_complete
+    trigger: { verb: look_at, target: notice_board }
+    conditions:
+      - hasFlag: got_tankard
+    actions:
+      - say: "The notice says to present the Enchanted Tankard to the Knight's Guild. I have it! My quest is complete!"
+      - setFlag: game_complete
+      - wait: 30
+      - showEnding: true

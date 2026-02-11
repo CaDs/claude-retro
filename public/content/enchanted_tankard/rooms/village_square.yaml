@@ -1,0 +1,60 @@
+room:
+  id: village_square
+  name: "Village Square"
+  bgColor: "#2a4a2a"
+  description: "The bustling village square. A stone well sits in the center, and colorful market stalls line the edges."
+
+  background:
+    type: procedural
+    generator: village_square
+
+  walkableArea:
+    rects:
+      - { x: 20, y: 90, width: 280, height: 50 }
+
+  hotspots:
+    - id: well
+      name: "Stone Well"
+      rect: { x: 135, y: 65, width: 50, height: 45 }
+      walkTo: { x: 160, y: 110 }
+      responses:
+        look_at: "An old stone well. It looks deep. There might be something down there."
+        pick_up: "It's far too heavy to carry around."
+
+    - id: notice_board
+      name: "Notice Board"
+      rect: { x: 245, y: 50, width: 35, height: 45 }
+      walkTo: { x: 245, y: 105 }
+      responses:
+        look_at: "A wooden notice board. One notice reads: \"The Knight's Guild seeks brave souls! Present the Enchanted Tankard to prove your worth.\""
+        pick_up: "I can't just take the whole board."
+
+    - id: market_stall
+      name: "Market Stall"
+      rect: { x: 20, y: 55, width: 55, height: 45 }
+      walkTo: { x: 55, y: 105 }
+      responses:
+        look_at: "A market stall selling various trinkets and supplies. A coil of rope catches my eye."
+
+    - id: rope_on_stall
+      name: "Rope"
+      rect: { x: 35, y: 70, width: 20, height: 15 }
+      walkTo: { x: 55, y: 105 }
+      visible: true
+      responses:
+        look_at: "A sturdy hempen rope. Looks useful."
+
+  exits:
+    - id: to_tavern
+      rect: { x: 290, y: 70, width: 30, height: 60 }
+      target: tavern
+      spawnAt: { x: 30, y: 115 }
+      name: "Tavern"
+      lookAt: "The Rusty Dragon Tavern. Sounds and warmth pour out through the door."
+
+    - id: to_forest
+      rect: { x: 130, y: 45, width: 60, height: 20 }
+      target: forest_path
+      spawnAt: { x: 160, y: 125 }
+      name: "Forest Path"
+      lookAt: "A path leading into the dark forest to the north."

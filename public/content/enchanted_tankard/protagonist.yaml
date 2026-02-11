@@ -1,0 +1,16 @@
+protagonist:
+  id: squire
+  name: "Young Squire"
+  description: "A young aspiring knight on a quest to prove their worth."
+  walkSpeed: 1.5
+
+  traits:
+    bodyType: average
+    gender: male
+    skinTone: fair
+    hairStyle: short
+    hairColor: brown
+    clothing: tunic
+    clothingColor: blue
+    accessory: none
+    footwear: boots

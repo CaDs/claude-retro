@@ -2,6 +2,8 @@ import { Renderer } from './engine/Renderer.js';
 import { AssetLoader } from './engine/AssetLoader.js';
 import { InputManager } from './engine/InputManager.js';
 import { ProceduralAssets } from './engine/ProceduralAssets.js';
+import { GameLoader } from './engine/GameLoader.js';
+import { ContentRegistry } from './engine/ContentRegistry.js';
 import { SceneManager } from './systems/SceneManager.js';
 import { VerbSystem } from './systems/VerbSystem.js';
 import { InventorySystem } from './systems/InventorySystem.js';
@@ -9,23 +11,20 @@ import { DialogueSystem } from './systems/DialogueSystem.js';
 import { WalkingSystem } from './systems/WalkingSystem.js';
 import { ScriptRunner } from './systems/ScriptRunner.js';
 import { SaveSystem } from './systems/SaveSystem.js';
-import { CONFIG } from './data/gameConfig.js';
-import { ITEMS } from './data/items.js';
-import { PUZZLES, DEFAULT_RESPONSES } from './data/puzzles.js';
-import { villageSquare } from './data/rooms/village_square.js';
-import { tavern } from './data/rooms/tavern.js';
-import { forestPath } from './data/rooms/forest_path.js';
-import { bartenderDialogue, bartenderDialogueAfterKey } from './data/dialogues/bartender.js';
-import { hermitDialogue } from './data/dialogues/hermit.js';
+import { CharacterSystem } from './systems/CharacterSystem.js';
+import { PuzzleSystem } from './systems/PuzzleSystem.js';
 
 /**
- * Main Game class — orchestrates all systems.
+ * GameEngine — Data-driven game engine orchestrating all systems.
+ * All game content is loaded from YAML DSL files via GameLoader.
  */
-class Game {
+class GameEngine {
   constructor() {
     this.canvas = document.getElementById('game-canvas');
-    this.renderer = new Renderer(this.canvas, CONFIG.WIDTH, CONFIG.HEIGHT);
-    this.input = new InputManager(this.canvas, CONFIG.WIDTH, CONFIG.HEIGHT);
+
+    // These get initialized properly after content is loaded
+    this.renderer = null;
+    this.input = null;
     this.assets = new AssetLoader();
     this.scenes = new SceneManager();
     this.verbs = new VerbSystem();
@@ -35,6 +34,11 @@ class Game {
     this.scripts = new ScriptRunner();
     this.save = new SaveSystem();
 
+    // These are set after loading
+    this.content = null;
+    this.characters = null;
+    this.puzzles = null;
+
     // Game state flags
     this.flags = {};
     this.messageText = '';
@@ -42,18 +46,37 @@ class Game {
     this.showingEnding = false;
     this.endingTimer = 0;
 
-    // Dialogues registry
-    this.dialogues = {
-      bartender: bartenderDialogue,
-      hermit: hermitDialogue,
-    };
+    // Current room NPC cache
+    this._currentRoomNpcs = [];
   }
 
   async init() {
-    // Register rooms
-    this.scenes.registerRoom('village_square', villageSquare);
-    this.scenes.registerRoom('tavern', tavern);
-    this.scenes.registerRoom('forest_path', forestPath);
+    // Load game content from YAML DSL
+    const contentPath = './content/enchanted_tankard';
+    let gameDef;
+    try {
+      gameDef = await GameLoader.load(contentPath);
+    } catch (err) {
+      console.error('Failed to load game content:', err);
+      throw err;
+    }
+
+    // Initialize content registry
+    this.content = new ContentRegistry(gameDef);
+
+    // Initialize renderer with game resolution
+    const res = this.content.resolution;
+    this.renderer = new Renderer(this.canvas, res.width, res.height);
+    this.input = new InputManager(this.canvas, res.width, res.height);
+
+    // Initialize data-driven systems
+    this.characters = new CharacterSystem(this.content);
+    this.puzzles = new PuzzleSystem(this.content);
+
+    // Register all rooms from content
+    for (const [id, room] of Object.entries(this.content.getAllRooms())) {
+      this.scenes.registerRoom(id, room);
+    }
 
     // Generate procedural pixel art assets
     ProceduralAssets.generateAll(this.assets);
@@ -68,8 +91,9 @@ class Game {
     if (loadingScreen) loadingScreen.classList.add('hidden');
 
     // Initialize starting room
-    this.scenes.loadRoom(CONFIG.START_ROOM);
-    this.walking.setPosition(CONFIG.START_X, CONFIG.START_Y);
+    this.scenes.loadRoom(this.content.startRoom);
+    this.walking.setPosition(this.content.startPosition.x, this.content.startPosition.y);
+    this._refreshRoomNpcs();
 
     // Check for saved game
     if (this.save.hasSave()) {
@@ -79,6 +103,14 @@ class Game {
     // Start game loop
     this.lastTime = performance.now();
     this._loop();
+  }
+
+  /**
+   * Refresh the NPC list for the current room.
+   */
+  _refreshRoomNpcs() {
+    const roomId = this.scenes.currentRoomId;
+    this._currentRoomNpcs = roomId ? this.characters.getNpcsInRoom(roomId) : [];
   }
 
   /**
@@ -146,14 +178,15 @@ class Game {
       if (this.verbs.selectedVerb === 'Use' || this.verbs.selectedVerb === 'Give') {
         this.verbs.selectedItem = clickedItem;
       } else if (this.verbs.selectedVerb === 'Look at') {
-        const itemDef = ITEMS[clickedItem.id];
+        const itemDef = this.content.getItem(clickedItem.id);
         if (itemDef) this.showMessage(itemDef.description);
       }
       return;
     }
 
     // Handle clicks in the game viewport
-    if (this.input.clicked && this.input.clickY < 140) {
+    const vh = this.content.viewportHeight;
+    if (this.input.clicked && this.input.clickY < vh) {
       const clickX = this.input.clickX;
       const clickY = this.input.clickY;
 
@@ -181,7 +214,7 @@ class Game {
       }
 
       // Otherwise walk to destination
-      if (clickY >= 80 && clickY <= 140) {
+      if (clickY >= 80 && clickY <= vh) {
         const walkTarget = this.scenes.getClosestWalkable(clickX, clickY);
         this.walking.walkTo(walkTarget.x, walkTarget.y);
       }
@@ -211,6 +244,7 @@ class Game {
    */
   _handleHotspotInteraction(hotspot) {
     const verb = this.verbs.selectedVerb.toLowerCase();
+    const verbId = verb.replace(/\s+/g, '_'); // 'look at' → 'look_at'
     const item = this.verbs.selectedItem;
 
     // Walk to hotspot first, then interact
@@ -218,31 +252,66 @@ class Game {
     const walkY = hotspot.walkToY || hotspot.y + hotspot.height;
 
     this.walking.walkTo(walkX, walkY, () => {
-      // Check puzzles first
+      // 1. Check puzzles first (item + target)
       if (item) {
-        // verb:item:hotspot pattern (e.g., "use:rope:well")
-        const puzzleKey = `${verb}:${item.id}:${hotspot.id}`;
-        if (this._tryPuzzle(puzzleKey)) return;
+        const result = this.puzzles.tryResolveWithItem(verbId, item.id, hotspot.id, this.flags, this.inventory);
+        if (result) {
+          if (result.failText) {
+            this.showMessage(result.failText);
+          } else if (result.actions) {
+            this.scripts.run(this.puzzles.toScriptActions(result.actions), () => {
+              this.verbs.selectedItem = null;
+            });
+          }
+          return;
+        }
+
+        // Check item useOn for this target
+        const itemDef = this.content.getItem(item.id);
+        if (itemDef && itemDef.useOn) {
+          const useOnResult = itemDef.useOn[hotspot.id];
+          if (useOnResult === 'puzzle') {
+            // Already checked puzzles above — show fail text or default
+            this.showMessage(itemDef.useDefault || this._getDefaultResponse(verbId));
+            return;
+          } else if (typeof useOnResult === 'string') {
+            this.showMessage(useOnResult);
+            this.verbs.selectedItem = null;
+            return;
+          }
+        }
+
+        // Item useDefault
+        if (itemDef && itemDef.useDefault) {
+          this.showMessage(itemDef.useDefault);
+          this.verbs.selectedItem = null;
+          return;
+        }
       }
 
-      // verb:hotspot pattern (e.g., "pick up:rope_on_stall")
-      const puzzleKey = `${verb}:${hotspot.id}`;
-      if (this._tryPuzzle(puzzleKey)) return;
+      // 2. Verb + target puzzle (e.g., 'pick_up:rope_on_stall')
+      const result = this.puzzles.tryResolve(verbId, hotspot.id, this.flags, this.inventory);
+      if (result) {
+        if (result.failText) {
+          this.showMessage(result.failText);
+        } else if (result.actions) {
+          this.scripts.run(this.puzzles.toScriptActions(result.actions), () => {
+            this.verbs.selectedItem = null;
+          });
+        }
+        return;
+      }
 
-      // Check special flag-based puzzles
-      const flagPuzzleKey = `${verb}:${hotspot.id}:flag:${this._getRelevantFlag(hotspot.id)}`;
-      if (this._tryPuzzle(flagPuzzleKey)) return;
-
-      // Use hotspot's built-in responses (map verb to camelCase property)
+      // 3. Hotspot's built-in responses
       const verbKey = verb.replace(/\s+(\w)/g, (_, c) => c.toUpperCase()); // 'look at' → 'lookAt'
-      const response = hotspot[verbKey];
+      const response = hotspot[verbKey] || hotspot._responses?.[verbId];
       if (response) {
         this.showMessage(response);
         return;
       }
 
-      // Default response
-      this.showMessage(DEFAULT_RESPONSES[verb] || 'I can\'t do that.');
+      // 4. Default response
+      this.showMessage(this._getDefaultResponse(verbId));
     });
   }
 
@@ -251,20 +320,63 @@ class Game {
    */
   _handleNpcInteraction(npc) {
     const verb = this.verbs.selectedVerb.toLowerCase();
+    const verbId = verb.replace(/\s+/g, '_');
+    const item = this.verbs.selectedItem;
 
     const walkX = npc.walkToX || npc.x + npc.width / 2;
     const walkY = npc.walkToY || npc.y + npc.height;
 
     this.walking.walkTo(walkX, walkY, () => {
-      if (verb === 'talk to' || verb === 'use') {
+      // Use item on NPC
+      if (item && (verbId === 'use' || verbId === 'give')) {
+        // Check puzzle first
+        const puzzleResult = this.puzzles.tryResolveWithItem(verbId, item.id, npc.id, this.flags, this.inventory);
+        if (puzzleResult) {
+          if (puzzleResult.failText) {
+            this.showMessage(puzzleResult.failText);
+          } else if (puzzleResult.actions) {
+            this.scripts.run(this.puzzles.toScriptActions(puzzleResult.actions), () => {
+              this.verbs.selectedItem = null;
+            });
+          }
+          return;
+        }
+
+        // Check item useOn for this NPC
+        const itemDef = this.content.getItem(item.id);
+        if (itemDef && itemDef.useOn) {
+          const useOnResult = itemDef.useOn[npc.id];
+          if (useOnResult === 'puzzle') {
+            // Puzzle not matched — defer to dialogue or show default
+            this._startDialogue(npc);
+            return;
+          } else if (typeof useOnResult === 'string') {
+            this.showMessage(useOnResult);
+            this.verbs.selectedItem = null;
+            return;
+          }
+        }
+
+        // Default: start dialogue for give/use
         this._startDialogue(npc);
-      } else if (verb === 'look at') {
-        this.showMessage(npc.lookAt || `It's ${npc.name}.`);
-      } else if (verb === 'give' && this.verbs.selectedItem) {
-        // Check for dialogue-based give
+        return;
+      }
+
+      // Talk to NPC
+      if (verbId === 'talk_to' || verbId === 'use') {
         this._startDialogue(npc);
+      } else if (verbId === 'look_at') {
+        // Check NPC responses
+        const npcResponse = this.characters.getNpcResponse(npc.id, 'look_at');
+        this.showMessage(npcResponse || npc.lookAt || `It's ${npc.name}.`);
       } else {
-        this.showMessage(DEFAULT_RESPONSES[verb] || 'I can\'t do that.');
+        // Check NPC-specific response for this verb
+        const npcResponse = this.characters.getNpcResponse(npc.id, verbId);
+        if (npcResponse) {
+          this.showMessage(npcResponse);
+        } else {
+          this.showMessage(this._getDefaultResponse(verbId));
+        }
       }
     });
   }
@@ -289,97 +401,91 @@ class Game {
       this.scenes.loadRoom(exit.target);
       this.walking.setPosition(exit.spawnX, exit.spawnY);
       this.verbs.selectedItem = null;
+      this._refreshRoomNpcs();
       await this.renderer.fadeIn();
     });
-  }
-
-  /**
-   * Try to execute a puzzle by key.
-   */
-  _tryPuzzle(key) {
-    const puzzle = PUZZLES[key];
-    if (!puzzle) return false;
-
-    // Check conditions
-    if (puzzle.conditions) {
-      for (const cond of puzzle.conditions) {
-        if (cond.type === 'has_item' && !this.inventory.hasItem(cond.item)) {
-          if (puzzle.failText) this.showMessage(puzzle.failText);
-          return true;
-        }
-        if (cond.type === 'has_flag' && !this.flags[cond.flag]) {
-          if (puzzle.failText) this.showMessage(puzzle.failText);
-          return true;
-        }
-      }
-    }
-
-    // Execute actions
-    if (puzzle.actions) {
-      this.scripts.run(puzzle.actions, () => {
-        this.verbs.selectedItem = null;
-      });
-    }
-
-    return true;
   }
 
   /**
    * Start a dialogue with an NPC.
    */
   _startDialogue(npc) {
-    let tree = null;
-    const key = npc.dialogueKey;
-
-    // Select appropriate dialogue tree based on game state
-    if (key === 'bartender') {
-      tree = this.inventory.hasItem('old_key') || this.flags.got_tankard
-        ? bartenderDialogueAfterKey
-        : bartenderDialogue;
-    } else {
-      tree = this.dialogues[key];
+    const npcDef = npc._npcDef || this.content.getNpc(npc.id);
+    if (!npcDef) {
+      this.showMessage(`${npc.name} doesn't seem to want to talk right now.`);
+      return;
     }
 
+    // Get the appropriate dialogue tree (with overrides)
+    const tree = this.content.getDialogueForNpc(npcDef, this.flags, this.inventory);
     if (!tree) {
       this.showMessage(`${npc.name} doesn't seem to want to talk right now.`);
       return;
     }
 
+    // Check for idle lines first (exhausted NPC)
+    if (this.dialogue.tryIdleLine(npc.name, npc.id, tree)) {
+      return;
+    }
+
+    // Start the dialogue tree with game state for condition checking
+    const gameState = { flags: this.flags, inventory: this.inventory };
     this.dialogue.start(npc.name, tree, (action) => {
       this._handleDialogueAction(action);
     }, () => {
       // Dialogue complete
-    });
+    }, npc.id, gameState);
   }
 
   /**
    * Handle actions triggered by dialogue nodes.
+   * Supports DSL format: { setFlag: 'x' }, { addItem: 'y' }, { removeItem: 'z' }
+   * as well as legacy format: { type: 'set_flag', flag: 'x' }
    */
   _handleDialogueAction(action) {
     if (!action) return;
 
+    // DSL format actions
+    if (action.setFlag) {
+      this.flags[action.setFlag] = true;
+      return;
+    }
+    if (action.addItem) {
+      const itemDef = this.content.getItem(action.addItem);
+      if (itemDef) {
+        this.inventory.addItem({ id: itemDef.id, name: itemDef.name });
+      }
+      return;
+    }
+    if (action.removeItem) {
+      this.inventory.removeItem(action.removeItem);
+      return;
+    }
+
+    // Legacy format actions
     switch (action.type) {
       case 'set_flag':
         this.flags[action.flag] = true;
         break;
-
       case 'trade':
         if (action.give && this.inventory.hasItem(action.give)) {
           this.inventory.removeItem(action.give);
         }
-        if (action.receive && ITEMS[action.receive]) {
-          this.inventory.addItem(ITEMS[action.receive]);
+        if (action.receive) {
+          const itemDef = this.content.getItem(action.receive);
+          if (itemDef) {
+            this.inventory.addItem({ id: itemDef.id, name: itemDef.name });
+          }
         }
         break;
-
-      case 'add_item':
-        if (ITEMS[action.item]) {
-          this.inventory.addItem(ITEMS[action.item]);
+      case 'add_item': {
+        const itemDef = this.content.getItem(action.item);
+        if (itemDef) {
+          this.inventory.addItem({ id: itemDef.id, name: itemDef.name });
         }
         break;
-
+      }
       case 'check_item':
-        // If player doesn't have the item, redirect dialogue
         if (!this.inventory.hasItem(action.item)) {
           this.dialogue.goToNode('coin_hint');
         }
@@ -396,8 +502,9 @@ class Game {
         this.showMessage(action.text, 120);
       },
       add_item: (action) => {
-        if (ITEMS[action.item]) {
-          this.inventory.addItem(ITEMS[action.item]);
+        const itemDef = this.content.getItem(action.item);
+        if (itemDef) {
+          this.inventory.addItem({ id: itemDef.id, name: itemDef.name });
         }
       },
       remove_item: (action) => {
@@ -421,11 +528,10 @@ class Game {
   }
 
   /**
-   * Get a relevant flag for puzzle matching.
+   * Get default response for a verb.
    */
-  _getRelevantFlag(hotspotId) {
-    if (hotspotId === 'notice_board' && this.flags.got_tankard) return 'got_tankard';
-    return '';
+  _getDefaultResponse(verbId) {
+    return this.content.defaultResponses?.[verbId] || "I can't do that.";
   }
 
   /**
@@ -463,10 +569,7 @@ class Game {
    * Get the NPC under the mouse.
    */
   _getHoveredNpc() {
-    const room = this.scenes.getRoom();
-    if (!room || !room.npcs) return null;
-
-    for (const npc of room.npcs) {
+    for (const npc of this._currentRoomNpcs) {
       if (this.input.isMouseInRect(npc.x, npc.y, npc.width, npc.height)) {
         return npc;
       }
@@ -507,9 +610,7 @@ class Game {
    * Find an NPC at a specific point.
    */
   _findNpcAt(x, y) {
-    const room = this.scenes.getRoom();
-    if (!room || !room.npcs) return null;
-    for (const npc of room.npcs) {
+    for (const npc of this._currentRoomNpcs) {
       if (this.input.isInRect(x, y, npc.x, npc.y, npc.width, npc.height)) {
         return npc;
       }
@@ -539,7 +640,7 @@ class Game {
     // Render room background
     this.scenes.renderBackground(this.renderer, this.assets);
 
-    // Render NPCs (simple colored rectangles as fallback)
+    // Render NPCs using CharacterGenerator
     this._renderNpcs();
 
     // Render player
@@ -580,33 +681,11 @@ class Game {
   }
 
   /**
-   * Render NPCs in the current room.
+   * Render NPCs in the current room using CharacterGenerator.
    */
   _renderNpcs() {
-    const room = this.scenes.getRoom();
-    if (!room || !room.npcs) return;
-
-    for (const npc of room.npcs) {
-      // Fallback NPC rendering (colored rectangles)
-      const nx = npc.x;
-      const ny = npc.y;
-
-      if (npc.id === 'bartender') {
-        // Bartender - large burly figure
-        this.renderer.drawRect(nx + 2, ny + 10, 16, 18, '#5a3a2a'); // body
-        this.renderer.drawRect(nx + 4, ny, 12, 12, '#d4a574');       // head
-        this.renderer.drawRect(nx + 6, ny + 12, 8, 4, '#f0f0f0');  // apron
-        this.renderer.drawRect(nx + 5, ny + 4, 3, 2, '#222');       // eye
-        this.renderer.drawRect(nx + 10, ny + 4, 3, 2, '#222');      // eye
-        this.renderer.drawRect(nx + 5, ny + 8, 8, 3, '#8B4513');    // beard
-      } else if (npc.id === 'hermit') {
-        // Hermit - small hunched figure
-        this.renderer.drawRect(nx + 3, ny + 10, 14, 18, '#3a5a3a'); // green shawl
-        this.renderer.drawRect(nx + 5, ny + 2, 10, 10, '#d4a574');  // head
-        this.renderer.drawRect(nx + 7, ny + 5, 2, 2, '#222');       // eye
-        this.renderer.drawRect(nx + 11, ny + 5, 2, 2, '#222');      // eye
-        this.renderer.drawRect(nx + 5, ny, 10, 4, '#888');           // hood
-      }
+    for (const npc of this._currentRoomNpcs) {
+      this.characters.drawNpc(this.renderer, npc);
     }
   }
 
@@ -637,11 +716,9 @@ class Game {
     }
 
     // Highlight hovered NPCs
-    if (room.npcs) {
-      for (const npc of room.npcs) {
-        if (this.input.isMouseInRect(npc.x, npc.y, npc.width, npc.height)) {
-          this.renderer.drawRectOutline(npc.x, npc.y, npc.width, npc.height, 'rgba(255,150,100,0.4)');
-        }
+    for (const npc of this._currentRoomNpcs) {
+      if (this.input.isMouseInRect(npc.x, npc.y, npc.width, npc.height)) {
+        this.renderer.drawRectOutline(npc.x, npc.y, npc.width, npc.height, 'rgba(255,150,100,0.4)');
       }
     }
   }
@@ -650,7 +727,6 @@ class Game {
    * Render message box.
    */
   _renderMessageBox() {
-    // Word-wrapped message above the player (hi-res text)
     const px = this.walking.x;
     const py = Math.max(10, this.walking.y - 50);
     const maxW = 200;
@@ -705,6 +781,7 @@ class Game {
     this.renderer.drawRect(0, 0, 320, 200, `rgba(0, 0, 0, ${alpha * 0.85})`);
 
     if (this.endingTimer > 30) {
+      const title = this.content.title || 'Quest Complete!';
       this.renderer.drawTextHiRes('Quest Complete!', 160, 40, {
         align: 'center', color: '#ffdd57', size: 12,
       });
@@ -716,7 +793,7 @@ class Game {
       this.renderer.drawTextHiRes('Thank you for playing!', 160, 130, {
         align: 'center', color: '#a0c0ff', size: 8,
       });
-      this.renderer.drawTextHiRes('The Enchanted Tankard', 160, 155, {
+      this.renderer.drawTextHiRes(title, 160, 155, {
         align: 'center', color: '#888', size: 7,
       });
       this.renderer.drawTextHiRes('A Retro Adventure Demo', 160, 170, {
@@ -736,6 +813,7 @@ class Game {
       items: this.inventory.items.map(i => i.id),
       flags: { ...this.flags },
       hiddenHotspots: this._getHiddenHotspots(),
+      dialogueExhaustion: this.dialogue.getExhaustionState(),
     };
     this.save.save(state);
   }
@@ -749,8 +827,12 @@ class Game {
 
     this.scenes.loadRoom(state.room);
     this.walking.setPosition(state.playerX, state.playerY);
-    this.inventory.items = state.items.map(id => ITEMS[id]).filter(Boolean);
+    this.inventory.items = state.items.map(id => {
+      const itemDef = this.content.getItem(id);
+      return itemDef ? { id: itemDef.id, name: itemDef.name } : null;
+    }).filter(Boolean);
     this.flags = state.flags || {};
+    this._refreshRoomNpcs();
 
     // Restore hidden hotspots
     if (state.hiddenHotspots) {
@@ -761,6 +843,11 @@ class Game {
           if (hs) hs.visible = false;
         }
       }
+    }
+
+    // Restore dialogue exhaustion
+    if (state.dialogueExhaustion) {
+      this.dialogue.restoreExhaustionState(state.dialogueExhaustion);
     }
   }
 
@@ -790,8 +877,8 @@ function renderer_drawUIPanel(renderer) {
   renderer.drawRect(0, 139, 320, 1, '#3a3a5e');
 }
 
-// Boot the game
-const game = new Game();
-game.init().catch(err => {
+// Boot the game engine
+const engine = new GameEngine();
+engine.init().catch(err => {
   console.error('Failed to initialize game:', err);
 });
