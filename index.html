@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="The Enchanted Tankard — A retro pixel-art graphic adventure game set in a fantasy medieval world."
+    />
+    <title>The Enchanted Tankard — A Retro Adventure</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="game-container">
+      <canvas id="game-canvas"></canvas>
+      <div id="loading-screen">
+        <div class="loading-content">
+          <h1>The Enchanted Tankard</h1>
+          <p>Loading...</p>
+          <div class="loading-bar">
+            <div class="loading-fill" id="loading-fill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
