@@ -112,34 +112,38 @@ export class Renderer {
   }
 
   /**
-   * Measure wrapped text height without drawing.
+   * Word-wrap text into lines, returning the lines and total height.
    */
-  measureTextWrappedHiRes(text, maxWidth, options = {}) {
+  _wrapLines(text, maxWidth, options = {}) {
     const { size = 8, lineHeight = 12 } = options;
     const s = this.scale;
     const fontSize = Math.round(size * s * 0.85);
-
     this.ctx.font = `${fontSize}px 'Press Start 2P', monospace`;
 
     const words = text.split(' ');
-    let line = '';
-    let dy = 0;
     const scaledMaxWidth = maxWidth * s;
+    const lines = [];
+    let line = '';
 
     for (const word of words) {
       const testLine = line + (line ? ' ' : '') + word;
-      const metrics = this.ctx.measureText(testLine);
-      if (metrics.width > scaledMaxWidth && line) {
+      if (this.ctx.measureText(testLine).width > scaledMaxWidth && line) {
+        lines.push(line);
         line = word;
-        dy += lineHeight;
       } else {
         line = testLine;
       }
     }
-    if (line) {
-      dy += lineHeight;
-    }
-    return dy;
+    if (line) lines.push(line);
+
+    return { lines, height: lines.length * lineHeight };
+  }
+
+  /**
+   * Measure wrapped text height without drawing.
+   */
+  measureTextWrappedHiRes(text, maxWidth, options = {}) {
+    return this._wrapLines(text, maxWidth, options).height;
   }
 
   /**
@@ -148,31 +152,9 @@ export class Renderer {
    */
   drawTextWrappedHiRes(text, x, y, maxWidth, options = {}) {
     const { lineHeight = 12 } = options;
-    const s = this.scale;
-
-    // Use measure logic but also draw
-    const words = text.split(' ');
-    let line = '';
+    const { lines } = this._wrapLines(text, maxWidth, options);
     let dy = 0;
-    const scaledMaxWidth = maxWidth * s;
-
-    // Set font once for measurement in loop
-    const size = options.size || 8;
-    const fontSize = Math.round(size * s * 0.85);
-    this.ctx.font = `${fontSize}px 'Press Start 2P', monospace`;
-
-    for (const word of words) {
-      const testLine = line + (line ? ' ' : '') + word;
-      const metrics = this.ctx.measureText(testLine);
-      if (metrics.width > scaledMaxWidth && line) {
-        this.drawTextHiRes(line, x, y + dy, options);
-        line = word;
-        dy += lineHeight;
-      } else {
-        line = testLine;
-      }
-    }
-    if (line) {
+    for (const line of lines) {
       this.drawTextHiRes(line, x, y + dy, options);
       dy += lineHeight;
     }

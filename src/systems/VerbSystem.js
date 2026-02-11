@@ -80,7 +80,6 @@ export class VerbSystem {
       const vy = this.y + row * (this.verbHeight + this.padding);
 
       const isSelected = this.verbs[i] === this.selectedVerb;
-      const isHovered = renderer.bufCtx ? false : false; // Will be set by Game
 
       // Button background
       renderer.drawRect(vx, vy, this.verbWidth, this.verbHeight,

@@ -71,6 +71,9 @@ class GameEngine {
     this._barkText = '';
     this._barkNpc = null;
     this._barkTimer = 0;
+
+    // Pause menu layout
+    this._pauseMenuLayout = { startY: 75, itemHeight: 18, minX: 100, maxX: 220 };
   }
 
   async init() {
@@ -319,6 +322,16 @@ class GameEngine {
   }
 
   /**
+   * Get walk-to position for an object (hotspot or NPC).
+   */
+  _getWalkTarget(obj) {
+    return {
+      x: obj.walkToX || obj.x + obj.width / 2,
+      y: obj.walkToY || obj.y + obj.height,
+    };
+  }
+
+  /**
    * Handle clicking on a hotspot.
    */
   _handleHotspotInteraction(hotspot) {
@@ -327,8 +340,7 @@ class GameEngine {
     const item = this.verbs.selectedItem;
 
     // Walk to hotspot first, then interact
-    const walkX = hotspot.walkToX || hotspot.x + hotspot.width / 2;
-    const walkY = hotspot.walkToY || hotspot.y + hotspot.height;
+    const { x: walkX, y: walkY } = this._getWalkTarget(hotspot);
 
     this.walking.walkTo(walkX, walkY, () => {
       // 1. Check puzzles first (item + target)
@@ -402,8 +414,7 @@ class GameEngine {
     const verbId = verb.replace(/\s+/g, '_');
     const item = this.verbs.selectedItem;
 
-    const walkX = npc.walkToX || npc.x + npc.width / 2;
-    const walkY = npc.walkToY || npc.y + npc.height;
+    const { x: walkX, y: walkY } = this._getWalkTarget(npc);
 
     this.walking.walkTo(walkX, walkY, () => {
       // Use item on NPC
@@ -882,12 +893,11 @@ class GameEngine {
 
     // Menu items
     const items = ['Resume', 'Save Game', 'Load Game', 'Restart'];
-    const startY = 75;
-    const itemHeight = 18;
+    const { startY, itemHeight, minX, maxX } = this._pauseMenuLayout;
     for (let i = 0; i < items.length; i++) {
       const y = startY + i * itemHeight;
       const isHovered = this.input.mouseY >= y && this.input.mouseY < y + itemHeight
-        && this.input.mouseX >= 100 && this.input.mouseX < 220;
+        && this.input.mouseX >= minX && this.input.mouseX < maxX;
       this.renderer.drawTextHiRes(items[i], 160, y, {
         align: 'center',
         color: isHovered ? '#ffdd57' : '#a0c0ff',
@@ -906,11 +916,10 @@ class GameEngine {
    */
   _handlePauseMenuClick(clickX, clickY) {
     const items = ['resume', 'save', 'load', 'restart'];
-    const startY = 75;
-    const itemHeight = 18;
+    const { startY, itemHeight, minX, maxX } = this._pauseMenuLayout;
     for (let i = 0; i < items.length; i++) {
       const y = startY + i * itemHeight;
-      if (clickY >= y && clickY < y + itemHeight && clickX >= 100 && clickX < 220) {
+      if (clickY >= y && clickY < y + itemHeight && clickX >= minX && clickX < maxX) {
         switch (items[i]) {
           case 'resume':
             this._pauseMenuOpen = false;

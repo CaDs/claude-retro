@@ -37,42 +37,6 @@ export class SceneManager {
   }
 
   /**
-   * Find a hotspot at the given coordinates.
-   */
-  getHotspotAt(x, y) {
-    if (!this.currentRoom || !this.currentRoom.hotspots) return null;
-
-    for (const hotspot of this.currentRoom.hotspots) {
-      if (!hotspot.enabled && hotspot.enabled !== undefined) continue;
-
-      const hx = hotspot.x;
-      const hy = hotspot.y;
-      const hw = hotspot.width;
-      const hh = hotspot.height;
-
-      if (x >= hx && x < hx + hw && y >= hy && y < hy + hh) {
-        return hotspot;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Find an exit at the given coordinates.
-   */
-  getExitAt(x, y) {
-    if (!this.currentRoom || !this.currentRoom.exits) return null;
-
-    for (const exit of this.currentRoom.exits) {
-      if (x >= exit.x && x < exit.x + exit.width &&
-          y >= exit.y && y < exit.y + exit.height) {
-        return exit;
-      }
-    }
-    return null;
-  }
-
-  /**
    * Check if a point is in the walkable area.
    */
   isWalkable(x, y) {
@@ -151,14 +115,4 @@ export class SceneManager {
     }
   }
 
-  /**
-   * Render room title.
-   */
-  renderTitle(renderer) {
-    if (!this.currentRoom) return;
-    // Room name at top
-    // renderer.drawText(this.currentRoom.name, 160, 2, {
-    //   align: 'center', color: '#888', size: 7
-    // });
-  }
 }

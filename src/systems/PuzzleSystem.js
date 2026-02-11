@@ -78,7 +78,7 @@ export class PuzzleSystem {
       if (action.addItem) return { type: 'add_item', item: action.addItem };
       if (action.removeItem) return { type: 'remove_item', item: action.removeItem };
       if (action.setFlag) return { type: 'set_flag', flag: action.setFlag };
-      if (action.wait) return { type: 'wait', duration: action.wait };
+      if (action.wait) return { type: 'wait', frames: action.wait };
       if (action.showEnding) return { type: 'show_ending' };
       if (action.hideHotspot) return {
         type: 'hide_hotspot',

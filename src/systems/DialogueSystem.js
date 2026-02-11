@@ -9,7 +9,6 @@ export class DialogueSystem {
     this.currentNode = null;
     this.npcName = '';
     this.displayText = '';
-    this.choices = [];
     this.textTimer = 0;
     this.textSpeed = 2; // chars per frame
     this.fullText = '';
@@ -238,7 +237,6 @@ export class DialogueSystem {
     this.active = false;
     this.dialogueTree = null;
     this.currentNode = null;
-    this.choices = [];
     this._visibleChoices = null;
     this._gameState = null;
     if (this.onComplete) {
