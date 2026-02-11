@@ -7,13 +7,14 @@ protagonist:
   traits:
     # Options: slim, average, stocky, tall
     bodyType: slim
-    gender: male
+    # Options: male, female
+    gender: female
     # Options: fair, tan, brown, dark, pale
     skinTone: fair
     # Options: short, long, ponytail, messy, braided, bald
-    hairStyle: short
+    hairStyle: ponytail
     # Options: brown, black, blonde, red, gray, white
-    hairColor: brown
+    hairColor: red
     # Options: tunic, apron, robe, armor, vest
     clothing: tunic
     # Options: blue, red, green, brown, purple, white, black, yellow, orange, gray (or #hex)
@@ -22,4 +23,5 @@ protagonist:
     facial: none
     # Options: hood, hat, headband, eyepatch, glasses, crown, none
     accessory: none
+    # Options: boots, shoes, sandals, none
     footwear: boots

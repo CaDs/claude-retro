@@ -65,6 +65,7 @@ export class CharacterGenerator {
     const skin = this.SKIN_TONES[traits.skinTone] || this.SKIN_TONES.fair;
     const hairColor = this.HAIR_COLORS[traits.hairColor] || this.HAIR_COLORS.brown;
     const clothColor = this._resolveColor(traits.clothingColor);
+    const isFemale = traits.gender === 'female';
 
     // Subtle bobbing animation (frames 1 and 3 are "down" frames)
     const isMoving = frame > 0;
@@ -84,10 +85,13 @@ export class CharacterGenerator {
     renderer.drawRect(x + cx + template.bodyW - 5, legY - legOffsetRight, 3, legH, legColor);
 
     // --- 2. Body (torso) ---
-    renderer.drawRect(x + cx, y + template.headH + bob, template.bodyW, template.bodyH - 2, clothColor);
+    // Female torso is slightly narrower or shaped differently
+    const torsoW = isFemale ? template.bodyW - 2 : template.bodyW;
+    const torsoX = cx + (isFemale ? 1 : 0);
+    renderer.drawRect(x + torsoX, y + template.headH + bob, torsoW, template.bodyH - 2, clothColor);
 
     // --- 3. Apply clothing pattern ---
-    this._drawClothing(renderer, x + cx, y + template.headH + bob, template, clothColor, traits.clothing);
+    this._drawClothing(renderer, x + torsoX, y + template.headH + bob, { ...template, bodyW: torsoW }, clothColor, traits.clothing);
 
     // --- 4. Head ---
     const headX = x + Math.floor((20 - template.headW) / 2);
@@ -97,8 +101,18 @@ export class CharacterGenerator {
     // --- 5. Eyes ---
     const eyeY = headY + Math.floor(template.headH * 0.4);
     const eyeSpacing = Math.floor(template.headW * 0.3);
-    renderer.drawRect(headX + eyeSpacing - 1, eyeY, 2, 2, '#222');
-    renderer.drawRect(headX + template.headW - eyeSpacing - 1, eyeY, 2, 2, '#222');
+    const eyeColor = '#222';
+    
+    // Left eye
+    renderer.drawRect(headX + eyeSpacing - 1, eyeY, 2, 2, eyeColor);
+    // Right eye
+    renderer.drawRect(headX + template.headW - eyeSpacing - 1, eyeY, 2, 2, eyeColor);
+
+    // Subtle female feature: eyelashes/longer eyes
+    if (isFemale) {
+      renderer.drawRect(headX + eyeSpacing - 2, eyeY, 1, 1, eyeColor);
+      renderer.drawRect(headX + template.headW - eyeSpacing + 1, eyeY, 1, 1, eyeColor);
+    }
 
     // --- 6. Hair ---
     this._drawHair(renderer, headX, headY, template, hairColor, traits.hairStyle);
@@ -111,6 +125,39 @@ export class CharacterGenerator {
     // --- 8. Accessories ---
     if (traits.accessory && traits.accessory !== 'none') {
       this._drawAccessory(renderer, headX, headY, template, traits.accessory);
+    }
+
+    // --- 9. Footwear ---
+    if (traits.footwear && traits.footwear !== 'none') {
+      this._drawFootwear(renderer, x + cx, legY, template, traits.footwear, isMoving, frame);
+    }
+  }
+
+  /**
+   * Draw footwear based on style.
+   */
+  static _drawFootwear(renderer, bodyX, legY, template, style, isMoving, frame) {
+    const shoeColor = '#3a2a1a'; // Default dark leather
+    const legOffsetLeft = (isMoving && frame === 1) ? 2 : 0;
+    const legOffsetRight = (isMoving && frame === 3) ? 2 : 0;
+
+    switch (style) {
+      case 'boots':
+        // Boots cover the lower part of the legs and extend slightly forward
+        renderer.drawRect(bodyX + 2 - 1, legY - legOffsetLeft + 1, 4, 3, shoeColor); // Left boot
+        renderer.drawRect(bodyX + template.bodyW - 5 - 1, legY - legOffsetRight + 1, 4, 3, shoeColor); // Right boot
+        break;
+      case 'shoes':
+        // Simple shoes at the very bottom
+        renderer.drawRect(bodyX + 2, legY - legOffsetLeft + 2, 4, 2, shoeColor);
+        renderer.drawRect(bodyX + template.bodyW - 5, legY - legOffsetRight + 2, 4, 2, shoeColor);
+        break;
+      case 'sandals':
+        // Lighter, strappy appearance
+        const sandalColor = '#8B7355';
+        renderer.drawRect(bodyX + 2, legY - legOffsetLeft + 3, 3, 1, sandalColor);
+        renderer.drawRect(bodyX + template.bodyW - 5, legY - legOffsetRight + 3, 3, 1, sandalColor);
+        break;
     }
   }
 

@@ -8,6 +8,7 @@ npcs:
   # clothingColor: blue, red, green, brown, purple, white, black, yellow, orange, gray (or #hex)
   # facial: beard, mustache, goatee, none
   # accessory: hood, hat, headband, eyepatch, glasses, crown, none
+  # footwear: boots, shoes, sandals, none
 
   - id: bartender
     name: "Bartender Gruff"
@@ -21,6 +22,7 @@ npcs:
       clothing: apron
       clothingColor: brown
       accessory: none
+      footwear: boots
 
     placements:
       - room: tavern
@@ -49,6 +51,7 @@ npcs:
       clothing: robe
       clothingColor: green
       accessory: hood
+      footwear: sandals
 
     placements:
       - room: forest_path
