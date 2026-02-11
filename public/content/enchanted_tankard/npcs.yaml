@@ -1,4 +1,14 @@
 npcs:
+  # Character Trait Reference:
+  # bodyType: slim, average, stocky, tall
+  # skinTone: fair, tan, brown, dark, pale
+  # hairStyle: short, long, ponytail, messy, braided, bald
+  # hairColor: brown, black, blonde, red, gray, white
+  # clothing: tunic, apron, robe, armor, vest
+  # clothingColor: blue, red, green, brown, purple, white, black, yellow, orange, gray (or #hex)
+  # facial: beard, mustache, goatee, none
+  # accessory: hood, hat, headband, eyepatch, glasses, crown, none
+
   - id: bartender
     name: "Bartender Gruff"
     traits:

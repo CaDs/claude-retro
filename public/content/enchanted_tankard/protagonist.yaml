@@ -5,12 +5,21 @@ protagonist:
   walkSpeed: 1.5
 
   traits:
-    bodyType: average
+    # Options: slim, average, stocky, tall
+    bodyType: slim
     gender: male
+    # Options: fair, tan, brown, dark, pale
     skinTone: fair
+    # Options: short, long, ponytail, messy, braided, bald
     hairStyle: short
+    # Options: brown, black, blonde, red, gray, white
     hairColor: brown
+    # Options: tunic, apron, robe, armor, vest
     clothing: tunic
+    # Options: blue, red, green, brown, purple, white, black, yellow, orange, gray (or #hex)
     clothingColor: blue
+    # Options: beard, mustache, goatee, none
+    facial: none
+    # Options: hood, hat, headband, eyepatch, glasses, crown, none
     accessory: none
     footwear: boots
