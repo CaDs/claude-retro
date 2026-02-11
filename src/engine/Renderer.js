@@ -112,21 +112,54 @@ export class Renderer {
   }
 
   /**
-   * Draw word-wrapped text at high resolution.
-   * Returns total height in internal coordinates.
+   * Measure wrapped text height without drawing.
    */
-  drawTextWrappedHiRes(text, x, y, maxWidth, options = {}) {
+  measureTextWrappedHiRes(text, maxWidth, options = {}) {
     const { size = 8, lineHeight = 12 } = options;
     const s = this.scale;
     const fontSize = Math.round(size * s * 0.85);
 
-    // Measure using temporary context
     this.ctx.font = `${fontSize}px 'Press Start 2P', monospace`;
 
     const words = text.split(' ');
     let line = '';
     let dy = 0;
     const scaledMaxWidth = maxWidth * s;
+
+    for (const word of words) {
+      const testLine = line + (line ? ' ' : '') + word;
+      const metrics = this.ctx.measureText(testLine);
+      if (metrics.width > scaledMaxWidth && line) {
+        line = word;
+        dy += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    if (line) {
+      dy += lineHeight;
+    }
+    return dy;
+  }
+
+  /**
+   * Draw word-wrapped text at high resolution.
+   * Returns total height in internal coordinates.
+   */
+  drawTextWrappedHiRes(text, x, y, maxWidth, options = {}) {
+    const { lineHeight = 12 } = options;
+    const s = this.scale;
+
+    // Use measure logic but also draw
+    const words = text.split(' ');
+    let line = '';
+    let dy = 0;
+    const scaledMaxWidth = maxWidth * s;
+
+    // Set font once for measurement in loop
+    const size = options.size || 8;
+    const fontSize = Math.round(size * s * 0.85);
+    this.ctx.font = `${fontSize}px 'Press Start 2P', monospace`;
 
     for (const word of words) {
       const testLine = line + (line ? ' ' : '') + word;

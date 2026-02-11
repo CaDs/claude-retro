@@ -732,14 +732,19 @@ class GameEngine {
     const maxW = 200;
     const startX = Math.max(4, Math.min(px - maxW / 2, 320 - maxW - 4));
 
-    // Draw a semi-transparent background for readability
-    this.renderer.drawRect(startX - 2, py - 2, maxW + 4, 30, 'rgba(0,0,0,0.6)');
-
-    this.renderer.drawTextWrappedHiRes(this.messageText, startX, py, maxW, {
+    const textOptions = {
       color: '#fff',
       size: 7,
       lineHeight: 10,
-    });
+    };
+
+    // Calculate height dynamically
+    const textHeight = this.renderer.measureTextWrappedHiRes(this.messageText, maxW, textOptions);
+
+    // Draw a semi-transparent background for readability
+    this.renderer.drawRect(startX - 4, py - 4, maxW + 8, textHeight + 8, 'rgba(0,0,0,0.6)');
+
+    this.renderer.drawTextWrappedHiRes(this.messageText, startX, py, maxW, textOptions);
   }
 
   /**
