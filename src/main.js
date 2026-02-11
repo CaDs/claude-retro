@@ -643,8 +643,8 @@ class GameEngine {
     // Render NPCs using CharacterGenerator
     this._renderNpcs();
 
-    // Render player
-    this.walking.render(this.renderer, this.assets);
+    // Render player using unified CharacterGenerator
+    this.characters.drawProtagonist(this.renderer, this.walking.x, this.walking.y, this.walking.walking ? this.walking.frame : 0);
 
     // Render hotspot highlights (when hovering)
     this._renderHotspotHighlights();

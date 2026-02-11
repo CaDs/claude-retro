@@ -58,42 +58,57 @@ export class CharacterGenerator {
    * @param {number} x - Base X position
    * @param {number} y - Base Y position
    * @param {object} traits - Character trait descriptor
+   * @param {number} frame - Walk cycle frame (0-3)
    */
-  static draw(renderer, x, y, traits) {
+  static draw(renderer, x, y, traits, frame = 0) {
     const template = this.BODY_TEMPLATES[traits.bodyType] || this.BODY_TEMPLATES.average;
     const skin = this.SKIN_TONES[traits.skinTone] || this.SKIN_TONES.fair;
     const hairColor = this.HAIR_COLORS[traits.hairColor] || this.HAIR_COLORS.brown;
     const clothColor = this._resolveColor(traits.clothingColor);
 
+    // Subtle bobbing animation (frames 1 and 3 are "down" frames)
+    const isMoving = frame > 0;
+    const bob = (isMoving && (frame === 1 || frame === 3)) ? 1 : 0;
+
     // Calculate centering offset
     const cx = Math.floor((20 - template.bodyW) / 2); // center within a 20px wide cell
 
-    // --- 1. Body (torso) ---
-    renderer.drawRect(x + cx, y + template.headH, template.bodyW, template.bodyH, clothColor);
+    // --- 1. Legs ---
+    const legColor = this._darken(clothColor, 40);
+    const legH = 4;
+    const legY = y + template.headH + template.bodyH - 2;
+    const legOffsetLeft = (isMoving && frame === 1) ? 2 : 0;
+    const legOffsetRight = (isMoving && frame === 3) ? 2 : 0;
+    
+    renderer.drawRect(x + cx + 2, legY - legOffsetLeft, 3, legH, legColor);
+    renderer.drawRect(x + cx + template.bodyW - 5, legY - legOffsetRight, 3, legH, legColor);
 
-    // --- 2. Apply clothing pattern ---
-    this._drawClothing(renderer, x + cx, y + template.headH, template, clothColor, traits.clothing);
+    // --- 2. Body (torso) ---
+    renderer.drawRect(x + cx, y + template.headH + bob, template.bodyW, template.bodyH - 2, clothColor);
 
-    // --- 3. Head ---
+    // --- 3. Apply clothing pattern ---
+    this._drawClothing(renderer, x + cx, y + template.headH + bob, template, clothColor, traits.clothing);
+
+    // --- 4. Head ---
     const headX = x + Math.floor((20 - template.headW) / 2);
-    const headY = y;
+    const headY = y + bob;
     renderer.drawRect(headX, headY, template.headW, template.headH, skin.base);
 
-    // --- 4. Eyes ---
+    // --- 5. Eyes ---
     const eyeY = headY + Math.floor(template.headH * 0.4);
     const eyeSpacing = Math.floor(template.headW * 0.3);
     renderer.drawRect(headX + eyeSpacing - 1, eyeY, 2, 2, '#222');
     renderer.drawRect(headX + template.headW - eyeSpacing - 1, eyeY, 2, 2, '#222');
 
-    // --- 5. Hair ---
+    // --- 6. Hair ---
     this._drawHair(renderer, headX, headY, template, hairColor, traits.hairStyle);
 
-    // --- 6. Facial features (NPC only) ---
+    // --- 7. Facial features (NPC only) ---
     if (traits.facial && traits.facial !== 'none') {
       this._drawFacial(renderer, headX, headY, template, hairColor, traits.facial);
     }
 
-    // --- 7. Accessories ---
+    // --- 8. Accessories ---
     if (traits.accessory && traits.accessory !== 'none') {
       this._drawAccessory(renderer, headX, headY, template, traits.accessory);
     }

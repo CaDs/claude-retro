@@ -87,46 +87,4 @@ export class WalkingSystem {
       this.frame = (this.frame + 1) % this.totalFrames;
     }
   }
-
-  /**
-   * Render the player character.
-   */
-  render(renderer, assets) {
-    const sprite = assets.get('player');
-
-    if (sprite) {
-      // Sprite sheet: columns = frames, rows = [idle, walk_right, walk_left]
-      const row = this.walking ? (this.direction === 'right' ? 1 : 2) : 0;
-      const col = this.walking ? this.frame : 0;
-
-      renderer.drawSprite(sprite,
-        col * this.spriteWidth, row * this.spriteHeight,
-        this.spriteWidth, this.spriteHeight,
-        Math.floor(this.x - this.spriteWidth / 2),
-        Math.floor(this.y - this.spriteHeight),
-        this.spriteWidth, this.spriteHeight
-      );
-    } else {
-      // Fallback: draw a simple character rectangle
-      const px = Math.floor(this.x - 6);
-      const py = Math.floor(this.y - 20);
-
-      // Body
-      renderer.drawRect(px + 2, py + 8, 8, 12, '#5a4a2a');
-      // Head
-      renderer.drawRect(px + 3, py, 6, 8, '#d4a574');
-      // Eyes
-      renderer.drawRect(px + 4, py + 3, 2, 2, '#222');
-      renderer.drawRect(px + 7, py + 3, 2, 2, '#222');
-      // Simple walking animation
-      if (this.walking) {
-        const legOffset = this.frame % 2 === 0 ? 0 : 2;
-        renderer.drawRect(px + 2, py + 20, 3, 4, '#3a2a1a');
-        renderer.drawRect(px + 7, py + 20 + legOffset, 3, 4, '#3a2a1a');
-      } else {
-        renderer.drawRect(px + 2, py + 20, 3, 4, '#3a2a1a');
-        renderer.drawRect(px + 7, py + 20, 3, 4, '#3a2a1a');
-      }
-    }
-  }
 }

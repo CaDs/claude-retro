@@ -53,18 +53,18 @@ export class CharacterSystem {
   /**
    * Draw an NPC using the CharacterGenerator.
    */
-  drawNpc(renderer, npc) {
+  drawNpc(renderer, npc, frame = 0) {
     const npcDef = npc._npcDef || this.content.getNpc(npc.id);
     if (!npcDef || !npcDef.traits) return;
-    CharacterGenerator.draw(renderer, npc.x, npc.y, npcDef.traits);
+    CharacterGenerator.draw(renderer, npc.x, npc.y, npcDef.traits, frame);
   }
 
   /**
    * Draw the protagonist at the given position.
    */
-  drawProtagonist(renderer, x, y) {
+  drawProtagonist(renderer, x, y, frame = 0) {
     if (this.protagonist && this.protagonist.traits) {
-      CharacterGenerator.draw(renderer, x, y, this.protagonist.traits);
+      CharacterGenerator.draw(renderer, x, y, this.protagonist.traits, frame);
     }
   }
 }
