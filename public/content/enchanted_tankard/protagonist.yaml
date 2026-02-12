@@ -12,11 +12,11 @@ protagonist:
     # Options: fair, tan, brown, dark, pale
     skinTone: fair
     # Options: short, long, ponytail, messy, braided, bald
-    hairStyle: ponytail
+    hairStyle: long
     # Options: brown, black, blonde, red, gray, white
     hairColor: red
     # Options: tunic, apron, robe, armor, vest
-    clothing: tunic
+    clothing: vest
     # Options: blue, red, green, brown, purple, white, black, yellow, orange, gray (or #hex)
     clothingColor: blue
     # Options: beard, mustache, goatee, none

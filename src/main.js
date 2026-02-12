@@ -15,6 +15,8 @@ import { CharacterSystem } from './systems/CharacterSystem.js';
 import { CharacterGenerator } from './engine/CharacterGenerator.js';
 import { PuzzleSystem } from './systems/PuzzleSystem.js';
 import { AudioSystem } from './systems/AudioSystem.js';
+import { LightingSystem } from './engine/LightingSystem.js';
+import { registerAllTemplates } from './templates/index.js';
 
 /**
  * GameEngine — Data-driven game engine orchestrating all systems.
@@ -36,6 +38,10 @@ class GameEngine {
     this.scripts = new ScriptRunner();
     this.save = new SaveSystem();
     this.audio = new AudioSystem();
+    this.lighting = new LightingSystem();
+
+    // Frame counter for animated props
+    this._frameCount = 0;
 
     // These are set after loading
     this.content = null;
@@ -104,8 +110,14 @@ class GameEngine {
       this.scenes.registerRoom(id, room);
     }
 
-    // Generate procedural pixel art assets
+    // Register all room templates
+    registerAllTemplates();
+
+    // Generate procedural pixel art assets (legacy path)
     ProceduralAssets.generateAll(this.assets);
+
+    // Generate template-based backgrounds (new path — additive, won't overwrite legacy)
+    ProceduralAssets.generateTemplateBackgrounds(this.assets, this.content);
 
     // Simulate brief loading for effect
     const loadingFill = document.getElementById('loading-fill');
@@ -120,6 +132,7 @@ class GameEngine {
     this.scenes.loadRoom(this.content.startRoom);
     this.walking.setPosition(this.content.startPosition.x, this.content.startPosition.y);
     this._refreshRoomNpcs();
+    this._configureLighting();
 
     // Check for saved game
     if (this.save.hasSave()) {
@@ -136,7 +149,60 @@ class GameEngine {
    */
   _refreshRoomNpcs() {
     const roomId = this.scenes.currentRoomId;
-    this._currentRoomNpcs = roomId ? this.characters.getNpcsInRoom(roomId, this.timeOfDay) : [];
+    this._currentRoomNpcs = roomId ? this.characters.getNpcsInRoom(roomId) : [];
+  }
+
+  /**
+   * Configure lighting for the current room.
+   * Reads from YAML definition if available, falls back to legacy hardcoded values.
+   */
+  _configureLighting() {
+    this.lighting.clear();
+    const roomId = this.scenes.currentRoomId;
+    const room = this.content.getRoom(roomId);
+
+    // New path: read lighting from room YAML definition
+    if (room && room.lighting) {
+      if (room.lighting.ambient) {
+        this.lighting.setAmbient(room.lighting.ambient.color, room.lighting.ambient.intensity);
+      }
+      for (const light of (room.lighting.lights || [])) {
+        this.lighting.addLight(light.x, light.y, light.radius, light.color, light.intensity, light.flicker);
+      }
+      return;
+    }
+
+    // Legacy fallback: hardcoded lighting per room
+    this._configureLightingLegacy(roomId);
+  }
+
+  /**
+   * Legacy hardcoded lighting for existing Enchanted Tankard rooms.
+   */
+  _configureLightingLegacy(roomId) {
+    switch (roomId) {
+      case 'tavern':
+        this.lighting.setAmbient('#1a1000', 0.15);
+        this.lighting.addLight(27, 65, 60, '#ff8844', 0.6, true);  // fireplace
+        this.lighting.addLight(123, 8, 30, '#ffaa44', 0.4, true);   // lantern left
+        this.lighting.addLight(203, 8, 30, '#ffaa44', 0.4, true);   // lantern right
+        break;
+      case 'village_square':
+        this.lighting.setAmbient('#000020', 0.05);
+        break;
+      case 'forest_path':
+        this.lighting.setAmbient('#002200', 0.2);
+        this.lighting.addLight(95, 70, 15, '#eeee66', 0.3, false);  // light shaft
+        this.lighting.addLight(160, 70, 15, '#eeee66', 0.3, false);
+        this.lighting.addLight(225, 70, 15, '#eeee66', 0.3, false);
+        this.lighting.addLight(215, 110, 20, '#44ff44', 0.2, true);  // mushroom glow
+        break;
+      case 'temple':
+        this.lighting.setAmbient('#050510', 0.25);
+        this.lighting.addLight(110, 75, 30, '#ffaa33', 0.5, true);   // altar glow (flickering)
+        this.lighting.addLight(290, 40, 45, '#aabbcc', 0.35, false); // wall opening (steady)
+        break;
+    }
   }
 
   /**
@@ -159,6 +225,7 @@ class GameEngine {
   _loop() {
     requestAnimationFrame(() => this._loop());
 
+    this._frameCount++;
     this.input.update();
     this.update();
     this.render();
@@ -239,7 +306,6 @@ class GameEngine {
       this._timeOfDayTimer = 0;
       this._timeOfDayIndex = (this._timeOfDayIndex + 1) % this._timeOfDayPeriods.length;
       this.timeOfDay = this._timeOfDayPeriods[this._timeOfDayIndex];
-      this._refreshRoomNpcs();
     }
 
     // Ambient bark system
@@ -493,6 +559,7 @@ class GameEngine {
       this.walking.setPosition(exit.spawnX, exit.spawnY);
       this.verbs.selectedItem = null;
       this._refreshRoomNpcs();
+      this._configureLighting();
       this._playRoomMusic(exit.target);
       await this.renderer.fadeIn();
     });
@@ -743,6 +810,9 @@ class GameEngine {
     // Z-sorted rendering of props, NPCs, and protagonist
     this._renderZSorted();
 
+    // Lighting overlay
+    this.lighting.render(this.renderer, this._frameCount);
+
     // Render ambient NPC bark bubble
     if (this._barkTimer > 0 && this._barkNpc) {
       this._renderBark();
@@ -827,21 +897,22 @@ class GameEngine {
     for (const r of renderables) {
       switch (r.kind) {
         case 'prop':
-          ProceduralAssets.drawProp(this.renderer, r.data.type, r.data.x, r.data.y, r.data.variant);
+          ProceduralAssets.drawProp(this.renderer, r.data.type, r.data.x, r.data.y, r.data.variant, this._frameCount);
           break;
         case 'npc':
+          this.lighting.drawCharacterShadow(this.renderer, r.data.x + r.data.width / 2, r.data.y + r.data.height, r.data.width);
           this.characters.drawNpc(this.renderer, r.data, 0, r.data.facing);
           break;
         case 'protagonist': {
-          // Compute protagonist frame: walking → walk frame, idle → idle frame, standing → 0
           let frame;
           if (this.walking.walking) {
             frame = this.walking.frame;
           } else if (this.walking.isIdle) {
-            frame = 4 + this.walking.idleFrame;
+            frame = 8 + this.walking.idleFrame;
           } else {
             frame = 0;
           }
+          this.lighting.drawCharacterShadow(this.renderer, this.walking.x + 10, this.walking.y + protoHeight, 16);
           this.characters.drawProtagonist(
             this.renderer,
             this.walking.x,
@@ -994,6 +1065,7 @@ class GameEngine {
     this.scenes.loadRoom(this.content.startRoom);
     this.walking.setPosition(this.content.startPosition.x, this.content.startPosition.y);
     this._refreshRoomNpcs();
+    this._configureLighting();
   }
 
   /**
@@ -1079,7 +1151,7 @@ class GameEngine {
     const cursorImg = this.assets.get('cursor');
     if (cursorImg) {
       // Draw on hi-res layer so cursor is always on top of text
-      this.renderer.drawImageHiRes(cursorImg, this.input.mouseX, this.input.mouseY, 8, 8);
+      this.renderer.drawImageHiRes(cursorImg, this.input.mouseX, this.input.mouseY, 12, 12);
     } else {
       // Fallback crosshair cursor (hi-res text layer for visibility)
       const cx = this.input.mouseX;
@@ -1149,6 +1221,7 @@ class GameEngine {
     }).filter(Boolean);
     this.flags = state.flags || {};
     this._refreshRoomNpcs();
+    this._configureLighting();
 
     // Restore hidden hotspots
     if (state.hiddenHotspots) {
@@ -1171,7 +1244,6 @@ class GameEngine {
       this._timeOfDayIndex = state.timeOfDayIndex;
       this.timeOfDay = this._timeOfDayPeriods[this._timeOfDayIndex];
       this._timeOfDayTimer = 0;
-      this._refreshRoomNpcs();
     }
   }
 

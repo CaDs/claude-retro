@@ -64,3 +64,11 @@ room:
       spawnAt: { x: 160, y: 125 }
       name: "Forest Path"
       lookAt: "A path leading into the dark forest to the north."
+
+    - id: to_temple
+      rect: { x: 0, y: 80, width: 20, height: 50 }
+      walkTo: { x: 30, y: 110 }
+      target: temple
+      spawnAt: { x: 290, y: 115 }
+      name: "Ancient Temple"
+      lookAt: "A crumbling stone archway leads to what appears to be an ancient temple."

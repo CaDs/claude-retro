@@ -6,6 +6,7 @@ export class ContentRegistry {
   constructor(gameDef) {
     this._gameDef = gameDef;
     this.title = gameDef.title;
+    this.setting = gameDef.setting || null;
     this.version = gameDef.version;
     this.resolution = gameDef.resolution;
     this.viewportHeight = gameDef.viewportHeight;
@@ -153,6 +154,38 @@ export class ContentRegistry {
     if (cond.not) return !this._evaluateCondition(cond.not, flags, inventory);
 
     return true;
+  }
+
+  // --- Settings & Templates ---
+
+  /**
+   * Get the game's setting ID (e.g., 'fantasy', 'scifi').
+   */
+  getSetting() {
+    return this.setting;
+  }
+
+  /**
+   * Get the background template info for a room.
+   * Returns { template, params, palette, paletteOverrides } or null.
+   */
+  getRoomTemplate(roomId) {
+    const room = this.getRoom(roomId);
+    if (!room || !room.background || !room.background.template) return null;
+    return room.background;
+  }
+
+  /**
+   * Get rooms that use template-based backgrounds.
+   */
+  getTemplateRooms() {
+    const result = [];
+    for (const [id, room] of Object.entries(this._rooms)) {
+      if (room.background && room.background.template) {
+        result.push(room);
+      }
+    }
+    return result;
   }
 
   // --- Music ---

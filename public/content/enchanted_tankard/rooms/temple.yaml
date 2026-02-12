@@ -1,0 +1,75 @@
+room:
+  id: temple
+  name: "Ancient Temple"
+  bgColor: "#0a0a2a"
+  description: "A crumbling stone temple, long abandoned. Cool air and the faint scent of incense linger."
+
+  background:
+    type: procedural
+    generator: temple
+
+  walkableArea:
+    rects:
+      - { x: 15, y: 90, width: 295, height: 50 }
+
+  hotspots:
+    - id: altar
+      name: "Stone Altar"
+      rect: { x: 88, y: 72, width: 44, height: 28 }
+      walkTo: { x: 110, y: 115 }
+      responses:
+        look_at: "An ancient stone altar. A golden vessel sits on top, faintly glowing with an otherworldly light."
+        use: "The altar feels warm to the touch. Strange energy pulses through it."
+        pick_up: "The altar is far too heavy. It's been here for centuries."
+
+    - id: wall_runes
+      name: "Wall Runes"
+      rect: { x: 25, y: 28, width: 50, height: 30 }
+      walkTo: { x: 50, y: 105 }
+      responses:
+        look_at: "Faded golden runes are carved into the wall. They seem to tell a story about an ancient order of protectors."
+        use: "I trace my fingers over the runes. They feel warm, but nothing happens."
+
+    - id: broken_column
+      name: "Broken Column"
+      rect: { x: 225, y: 42, width: 30, height: 55 }
+      walkTo: { x: 220, y: 110 }
+      responses:
+        look_at: "A shattered column. Whatever brought this temple to ruin must have been powerful. Vines are starting to creep up the remains."
+        push: "The column is far too heavy to move, even broken."
+        pick_up: "I can't carry a stone column."
+
+    - id: tapestry
+      name: "Faded Tapestry"
+      rect: { x: 8, y: 26, width: 22, height: 35 }
+      walkTo: { x: 30, y: 105 }
+      responses:
+        look_at: "A moth-eaten tapestry depicting robed figures gathered around a golden light. The colors have faded but gold thread still glimmers."
+        pull: "The fabric is too fragile. It would crumble in my hands."
+        pick_up: "It's barely holding together as it is."
+
+    - id: wall_opening
+      name: "Wall Opening"
+      rect: { x: 268, y: 5, width: 50, height: 70 }
+      walkTo: { x: 270, y: 105 }
+      responses:
+        look_at: "A large crack in the temple wall. Pale light streams in from outside, illuminating dust motes in the air."
+        use: "The opening is too high and too narrow to climb through."
+
+    - id: fallen_candelabra
+      name: "Fallen Candelabra"
+      rect: { x: 170, y: 98, width: 45, height: 12 }
+      walkTo: { x: 195, y: 120 }
+      responses:
+        look_at: "An ornate bronze candelabra, toppled long ago. The candle stubs have long since melted away."
+        pick_up: "It's too heavy and awkward to carry around."
+        use: "Without any candles, it's not very useful."
+
+  exits:
+    - id: to_village
+      rect: { x: 300, y: 85, width: 20, height: 50 }
+      walkTo: { x: 295, y: 115 }
+      target: village_square
+      spawnAt: { x: 30, y: 110 }
+      name: "Village Square"
+      lookAt: "The way back to the village square."

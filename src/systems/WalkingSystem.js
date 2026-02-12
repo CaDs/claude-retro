@@ -14,8 +14,8 @@ export class WalkingSystem {
     this.direction = 'right'; // 'left', 'right'
     this.frame = 0;
     this.frameTimer = 0;
-    this.frameSpeed = 8; // frames between animation updates
-    this.totalFrames = 4; // walk cycle frames
+    this.frameSpeed = 6; // frames between animation updates
+    this.totalFrames = 8; // walk cycle frames (8-frame EGA-style)
 
     // Sprite dimensions
     this.spriteWidth = 16;
@@ -82,7 +82,7 @@ export class WalkingSystem {
         this.idleFrameTimer++;
         if (this.idleFrameTimer >= this.idleFrameSpeed) {
           this.idleFrameTimer = 0;
-          this.idleFrame = (this.idleFrame + 1) % 2;
+          this.idleFrame = (this.idleFrame + 1) % 4;
         }
       }
       return;
