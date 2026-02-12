@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A retro pixel-art point-and-click graphic adventure game engine inspired by classic LucasArts titles (Monkey Island, etc.), plus a visual **Game Creator** for authoring games without code. Built with vanilla JavaScript and Vite. All game content is defined in YAML DSL files.
 
+Do not add Co-Authored-By trailers to commit messages.
+
 ## Commands
 
 ```bash
