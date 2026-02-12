@@ -1,4 +1,4 @@
-# 🎮 Retro Adventure Engine (DSL Edition)
+# 🎮 Retro Adventure Engine (DSL Edition) - ALPHA
 
 A data-driven, SCUMM-inspired point-and-click adventure engine built with vanilla JavaScript and Vite. This project demonstrates a powerful **YAML-based DSL** for defining game worlds, characters, dialogues, and complex puzzles without writing code.
 
