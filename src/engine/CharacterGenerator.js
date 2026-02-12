@@ -341,6 +341,38 @@ export class CharacterGenerator {
         renderer.drawRect(llx, lly + legH - 1, template.legW, 1, '#8B7355');
         renderer.drawRect(rlx, rly + legH - 1, template.legW, 1, '#8B7355');
         break;
+      case 'sneakers': {
+        // Like shoes but with colored sole line
+        renderer.drawRect(llx, lly + legH - 2, template.legW + 1, 2, '#e8e8e8');
+        renderer.drawRect(llx, lly + legH, template.legW + 1, 1, '#4a86c8'); // accent sole
+        renderer.drawRect(rlx, rly + legH - 2, template.legW + 1, 2, '#e8e8e8');
+        renderer.drawRect(rlx, rly + legH, template.legW + 1, 1, '#4a86c8');
+        break;
+      }
+      case 'high_tops': {
+        // Taller shoes extending 1px higher on ankle
+        renderer.drawRect(llx, lly + legH - 3, template.legW + 1, 3, '#e8e8e8');
+        renderer.drawRect(llx, lly + legH, template.legW + 1, 1, '#c84a4a'); // accent
+        renderer.drawRect(rlx, rly + legH - 3, template.legW + 1, 3, '#e8e8e8');
+        renderer.drawRect(rlx, rly + legH, template.legW + 1, 1, '#c84a4a');
+        break;
+      }
+      case 'mag_boots': {
+        // Wider boots with glowing sole accent
+        renderer.drawRect(llx - 1, lly + legH - 3, template.legW + 2, 4, shoeColor);
+        renderer.drawRect(llx - 1, lly + legH + 1, template.legW + 2, 1, '#44aaff'); // glow sole
+        renderer.drawRect(rlx - 1, rly + legH - 3, template.legW + 2, 4, shoeColor);
+        renderer.drawRect(rlx - 1, rly + legH + 1, template.legW + 2, 1, '#44aaff');
+        break;
+      }
+      case 'armored_boots': {
+        // Boots with metallic highlight plate
+        renderer.drawRect(llx - 1, lly + legH - 3, template.legW + 1, 4, shoeColor);
+        renderer.drawRect(llx, lly + legH - 3, template.legW - 1, 1, '#8a8a8a'); // metal plate
+        renderer.drawRect(rlx - 1, rly + legH - 3, template.legW + 1, 4, shoeColor);
+        renderer.drawRect(rlx, rly + legH - 3, template.legW - 1, 1, '#8a8a8a');
+        break;
+      }
     }
   }
 
@@ -376,6 +408,110 @@ export class CharacterGenerator {
       case 'vest': {
         const vestDark = T.darken(baseColor, 30);
         renderer.drawRect(bodyX + 2, bodyY, template.bodyW - 4, template.bodyH - 2, vestDark);
+        break;
+      }
+      case 'jumpsuit': {
+        // Single-color body with collar line and belt
+        renderer.drawRect(bodyX, bodyY, template.bodyW, template.bodyH - 2, baseColor);
+        renderer.drawRect(bodyX + 1, bodyY, template.bodyW - 2, 1, shadowColor); // collar
+        renderer.drawRect(bodyX, bodyY + Math.floor(template.bodyH * 0.5), template.bodyW, 1, shadowColor); // belt
+        break;
+      }
+      case 'uniform': {
+        // Tunic-like with shoulder epaulettes and belt
+        renderer.drawRect(bodyX, bodyY + Math.floor(template.bodyH * 0.6), template.bodyW, 2, shadowColor);
+        renderer.drawRect(bodyX, bodyY, 2, 2, T.lighten(baseColor, 40)); // left epaulette
+        renderer.drawRect(bodyX + template.bodyW - 2, bodyY, 2, 2, T.lighten(baseColor, 40)); // right epaulette
+        renderer.drawRect(bodyX, bodyY + Math.floor(template.bodyH * 0.45), template.bodyW, 1, shadowColor); // belt
+        break;
+      }
+      case 'labcoat': {
+        const coatColor = '#e8e8e8';
+        const coatShadow = '#cccccc';
+        renderer.drawRect(bodyX - 1, bodyY, template.bodyW + 2, template.bodyH, coatColor);
+        renderer.drawRect(bodyX + template.bodyW, bodyY, 1, template.bodyH, coatShadow);
+        // Open front gap
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2), bodyY + 2, 1, template.bodyH - 4, baseColor);
+        break;
+      }
+      case 'spacesuit': {
+        // Wider silhouette with collar ring, belt, chest panel
+        renderer.drawRect(bodyX - 1, bodyY, template.bodyW + 2, template.bodyH - 2, baseColor);
+        renderer.drawRect(bodyX, bodyY, template.bodyW, 2, T.lighten(baseColor, 30)); // collar ring
+        renderer.drawRect(bodyX, bodyY + Math.floor(template.bodyH * 0.5), template.bodyW, 1, shadowColor); // belt
+        // Chest panel
+        const panelW = Math.floor(template.bodyW * 0.4);
+        const panelX = bodyX + Math.floor((template.bodyW - panelW) / 2);
+        renderer.drawRect(panelX, bodyY + 3, panelW, 3, '#555577');
+        break;
+      }
+      case 'jacket':
+      case 'leather_jacket':
+      case 'neon_jacket': {
+        const innerColor = T.darken(baseColor, 25);
+        renderer.drawRect(bodyX, bodyY, template.bodyW, template.bodyH - 2, baseColor);
+        // Open front showing inner
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2) - 1, bodyY + 2, 2, template.bodyH - 4, innerColor);
+        // Lapel lines
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2) - 2, bodyY, 1, 4, shadowColor);
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2) + 1, bodyY, 1, 4, shadowColor);
+        if (type === 'neon_jacket') {
+          const neonColor = T.lighten(baseColor, 60);
+          renderer.drawRect(bodyX, bodyY, template.bodyW, 1, neonColor); // shoulder highlight
+        }
+        break;
+      }
+      case 'hoodie': {
+        renderer.drawRect(bodyX, bodyY, template.bodyW, template.bodyH - 2, baseColor);
+        // Rounded neckline
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2) - 2, bodyY, 4, 2, T.darken(baseColor, 15));
+        break;
+      }
+      case 'tshirt':
+      case 'band_tee': {
+        renderer.drawRect(bodyX, bodyY, template.bodyW, Math.floor(template.bodyH * 0.6), baseColor);
+        // Round neck
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2) - 2, bodyY, 4, 1, T.darken(baseColor, 20));
+        if (type === 'band_tee') {
+          // Horizontal stripe graphic on chest
+          renderer.drawRect(bodyX + 2, bodyY + 3, template.bodyW - 4, 2, T.lighten(baseColor, 40));
+        }
+        break;
+      }
+      case 'tracksuit': {
+        renderer.drawRect(bodyX, bodyY, template.bodyW, template.bodyH - 2, baseColor);
+        // Vertical stripe down each side
+        renderer.drawRect(bodyX + 1, bodyY, 1, template.bodyH - 2, T.lighten(baseColor, 35));
+        renderer.drawRect(bodyX + template.bodyW - 2, bodyY, 1, template.bodyH - 2, T.lighten(baseColor, 35));
+        break;
+      }
+      case 'suit': {
+        renderer.drawRect(bodyX, bodyY, template.bodyW, template.bodyH - 2, baseColor);
+        // Collar
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2) - 2, bodyY, 4, 1, '#e8e8e8');
+        // Lapel lines
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2) - 2, bodyY + 1, 1, 4, shadowColor);
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2) + 1, bodyY + 1, 1, 4, shadowColor);
+        // Buttons
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2), bodyY + 5, 1, 1, '#aaaaaa');
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2), bodyY + 7, 1, 1, '#aaaaaa');
+        break;
+      }
+      case 'cloak': {
+        // Drawn behind body, open front - wider like robe
+        renderer.drawRect(bodyX - 1, bodyY - 1, template.bodyW + 2, template.bodyH + 1, baseColor);
+        renderer.drawRect(bodyX + template.bodyW, bodyY - 1, 1, template.bodyH + 1, shadowColor);
+        // Open front
+        renderer.drawRect(bodyX + Math.floor(template.bodyW / 2) - 1, bodyY + 1, 2, template.bodyH - 3, T.lighten(baseColor, 20));
+        break;
+      }
+      case 'dress':
+      case 'merchant_garb': {
+        // Longer than tunic, flared bottom
+        renderer.drawRect(bodyX, bodyY, template.bodyW, template.bodyH - 2, baseColor);
+        renderer.drawRect(bodyX - 1, bodyY + template.bodyH - 4, template.bodyW + 2, 3, baseColor); // flared bottom
+        renderer.drawRect(bodyX + template.bodyW, bodyY + template.bodyH - 4, 1, 3, shadowColor);
+        renderer.drawRect(bodyX, bodyY + Math.floor(template.bodyH * 0.4), template.bodyW, 1, shadowColor); // waist
         break;
       }
       case 'tunic':
@@ -495,6 +631,83 @@ export class CharacterGenerator {
         // Jewel
         renderer.drawRect(headCx, headCy - ry - 5, 1, 1, '#cc4444');
         break;
+      case 'visor': {
+        // Horizontal 3px band across eyes
+        renderer.drawRect(headCx - rx, headCy + 1, rx * 2, 3, '#44aaff');
+        renderer.drawRect(headCx - rx + 1, headCy + 1, rx * 2 - 2, 1, '#66ccff'); // highlight
+        break;
+      }
+      case 'headset': {
+        // Thin arc over head + earpiece dot
+        renderer.drawRect(headCx - rx + 1, headCy - ry - 1, rx * 2 - 2, 1, '#555555');
+        renderer.drawRect(headCx + rx - 1, headCy - 1, 2, 2, '#333333'); // earpiece
+        break;
+      }
+      case 'goggles': {
+        // 4px band across eyes with frame outlines
+        renderer.drawRect(headCx - rx, headCy - 1, rx * 2, 4, '#8B4513');
+        renderer.drawRect(headCx - rx + 1, headCy, rx - 2, 2, '#88ccee'); // left lens
+        renderer.drawRect(headCx + 1, headCy, rx - 2, 2, '#88ccee'); // right lens
+        break;
+      }
+      case 'helmet': {
+        // Fills top of head area, rounded, larger than hat
+        renderer.drawRect(headCx - rx - 1, headCy - ry - 2, rx * 2 + 2, ry + 2, '#777788');
+        renderer.drawRect(headCx - rx, headCy - ry - 2, rx * 2, 1, '#9999aa'); // highlight
+        break;
+      }
+      case 'sunglasses': {
+        // Thin dark line across eyes
+        renderer.drawRect(headCx - rx + 1, headCy + 1, rx * 2 - 2, 2, '#1a1a1a');
+        break;
+      }
+      case 'headphones': {
+        // Arc over head + ear squares
+        renderer.drawRect(headCx - rx + 1, headCy - ry - 1, rx * 2 - 2, 1, '#333333');
+        renderer.drawRect(headCx - rx - 1, headCy - 1, 2, 2, '#444444'); // left ear
+        renderer.drawRect(headCx + rx - 1, headCy - 1, 2, 2, '#444444'); // right ear
+        break;
+      }
+      case 'cap': {
+        // Baseball cap: dome + forward brim
+        renderer.drawRect(headCx - rx, headCy - ry - 2, rx * 2, 3, '#4a4a8a');
+        renderer.drawRect(headCx - rx - 2, headCy - ry + 1, 4, 1, '#4a4a8a'); // brim
+        break;
+      }
+      case 'scarf': {
+        // 2-3px colored region around neck
+        const scarfColor = '#cc4444';
+        renderer.drawRect(headCx - rx + 1, headCy + ry - 1, rx * 2 - 2, 3, scarfColor);
+        break;
+      }
+      case 'badge': {
+        // 2x2 colored square on upper chest (below head)
+        renderer.drawRect(headCx - 1, headCy + ry + 2, 2, 2, '#d4a040');
+        break;
+      }
+      case 'bandana': {
+        // Triangle over forehead
+        renderer.drawRect(headCx - rx, headCy - ry, rx * 2, 2, '#cc4444');
+        renderer.drawRect(headCx - rx + 1, headCy - ry - 1, rx * 2 - 2, 1, '#cc4444');
+        break;
+      }
+      case 'sweatband': {
+        // 1px colored line across forehead
+        renderer.drawRect(headCx - rx + 1, headCy - ry + 2, rx * 2 - 2, 1, '#ff6b6b');
+        break;
+      }
+      case 'walkman': {
+        // Small 2x3 rect at waist + 1px line to ear
+        renderer.drawRect(headCx + rx - 2, headCy + ry + 8, 2, 3, '#888888');
+        renderer.drawRect(headCx + rx - 1, headCy + 1, 1, ry + 7, '#555555'); // wire
+        break;
+      }
+      case 'circlet': {
+        // Thin 1px band around head with gem dot
+        renderer.drawRect(headCx - rx, headCy - ry + 1, rx * 2, 1, '#d4a040');
+        renderer.drawRect(headCx, headCy - ry + 1, 1, 1, '#cc4444'); // gem
+        break;
+      }
     }
   }
 

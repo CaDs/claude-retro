@@ -33,7 +33,7 @@ export class WalkableAreaEditor {
     if (!rects.length) {
       const empty = document.createElement('div');
       empty.className = 'creator-empty';
-      empty.innerHTML = '<span class="creator-empty__text">No walkable rects</span><span class="creator-empty__hint">Click "Add Rect" to define walkable areas</span>';
+      empty.innerHTML = '<span class="creator-empty__text">No walkable areas</span><span class="creator-empty__hint">Walkable areas define where your character can move. Add at least one rectangle covering the floor.</span>';
       container.appendChild(empty);
       return;
     }

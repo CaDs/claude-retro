@@ -26,6 +26,31 @@ export class SettingSelector {
     subtitle.textContent = 'Select the creative universe for your adventure game. This determines available room templates, palettes, props, and character options.';
     wrapper.appendChild(subtitle);
 
+    // Getting Started steps
+    const gettingStarted = document.createElement('div');
+    gettingStarted.className = 'creator-getting-started';
+    gettingStarted.style.marginBottom = '24px';
+
+    const steps = [
+      { title: 'Choose a setting', desc: 'Determines room templates, color palettes, and character options available to you.' },
+      { title: 'Build your rooms', desc: 'Design backgrounds, place hotspots, connect exits between rooms.' },
+      { title: 'Add characters & puzzles', desc: 'Create NPCs, write dialogues, define item interactions.' },
+    ];
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = document.createElement('div');
+      step.className = 'creator-getting-started__step';
+      step.innerHTML = `
+        <span class="creator-getting-started__number">${i + 1}</span>
+        <div class="creator-getting-started__content">
+          <div class="creator-getting-started__title">${steps[i].title}</div>
+          <div class="creator-getting-started__desc">${steps[i].desc}</div>
+        </div>
+      `;
+      gettingStarted.appendChild(step);
+    }
+    wrapper.appendChild(gettingStarted);
+
     const grid = document.createElement('div');
     grid.className = 'creator-setting-grid';
 

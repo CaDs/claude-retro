@@ -126,7 +126,24 @@ export class RoomEditor {
     rightPanel.innerHTML = '';
 
     if (!this.selectedRoomId) {
-      rightPanel.innerHTML = '<div class="creator-empty"><span class="creator-empty__text">No room selected</span><span class="creator-empty__hint">Select or add a room to edit</span></div>';
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'creator-empty';
+      emptyDiv.innerHTML = `
+        <span class="creator-empty__icon">&#x1f3e0;</span>
+        <span class="creator-empty__text">No room selected</span>
+        <span class="creator-empty__hint">Select a room from the list, or create your first one.</span>
+      `;
+      if (!this.app.state.rooms.length) {
+        const createBtn = document.createElement('button');
+        createBtn.className = 'creator-btn creator-btn--primary creator-btn--small';
+        createBtn.textContent = 'Create your first room';
+        createBtn.style.marginTop = '12px';
+        createBtn.addEventListener('click', () => {
+          this._leftPanel.querySelector('#add-room-btn').click();
+        });
+        emptyDiv.appendChild(createBtn);
+      }
+      rightPanel.appendChild(emptyDiv);
       return;
     }
 
@@ -152,6 +169,20 @@ export class RoomEditor {
       toolbar.appendChild(btn);
     }
     body.appendChild(toolbar);
+
+    // Mode hint line
+    const hints = {
+      info: 'Configure room template, palette, and background parameters',
+      hotspots: 'Interactive objects \u2014 things players can look at, pick up, or use',
+      exits: 'Doorways connecting this room to other rooms',
+      walkable: 'Floor areas where the player character can walk',
+      props: 'Decorative scene elements from the setting catalog',
+    };
+    const hint = document.createElement('div');
+    hint.className = 'creator-hint';
+    hint.style.cssText = 'padding:4px 10px 8px;border-bottom:1px solid var(--color-border);';
+    hint.textContent = hints[this.editMode] || '';
+    body.appendChild(hint);
 
     // Content area
     const content = document.createElement('div');
@@ -272,8 +303,8 @@ export class RoomEditor {
         container.querySelector('#palette-picker-area').innerHTML = '<span style="font-size:11px;color:var(--color-muted);">No palette available.</span>';
       }
     } else {
-      container.querySelector('#param-panel-area').innerHTML = '<span style="font-size:11px;color:var(--color-muted);">Select a template first.</span>';
-      container.querySelector('#palette-picker-area').innerHTML = '<span style="font-size:11px;color:var(--color-muted);">Select a template first.</span>';
+      container.querySelector('#param-panel-area').innerHTML = '<span class="creator-hint">Choose a template above to see its options</span>';
+      container.querySelector('#palette-picker-area').innerHTML = '<span class="creator-hint">Choose a template to customize its colors</span>';
     }
   }
 

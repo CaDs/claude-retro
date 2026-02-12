@@ -49,7 +49,7 @@ export class ExitEditor {
     if (exits.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'creator-empty';
-      empty.innerHTML = '<span class="creator-empty__text">No exits</span><span class="creator-empty__hint">Click + Add to create one</span>';
+      empty.innerHTML = '<span class="creator-empty__text">No exits</span><span class="creator-empty__hint">Exits connect rooms. Draw a rectangle where players walk to leave, or click + Add.</span>';
       container.appendChild(empty);
       return;
     }

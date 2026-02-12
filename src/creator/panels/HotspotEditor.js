@@ -49,7 +49,7 @@ export class HotspotEditor {
     if (hotspots.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'creator-empty';
-      empty.innerHTML = '<span class="creator-empty__text">No hotspots</span><span class="creator-empty__hint">Click + Add to create one</span>';
+      empty.innerHTML = '<span class="creator-empty__text">No hotspots</span><span class="creator-empty__hint">Hotspots are interactive areas \u2014 doors, items, furniture. Draw rectangles on the canvas or click + Add.</span>';
       container.appendChild(empty);
       return;
     }

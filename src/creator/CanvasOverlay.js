@@ -58,6 +58,25 @@ export class CanvasOverlay {
     this.wrapper.style.position = 'relative';
     this.wrapper.appendChild(this._overlay);
 
+    // Instruction bar at bottom of canvas
+    this._instructionBar = document.createElement('div');
+    this._instructionBar.className = 'creator-instruction-bar';
+    this._instructionBar.textContent = '';
+    this.wrapper.appendChild(this._instructionBar);
+
+    // Legend in top-right corner
+    this._legend = document.createElement('div');
+    this._legend.className = 'creator-canvas-legend';
+    this._legend.innerHTML = [
+      { color: '#00ff00', label: 'Hotspots' },
+      { color: '#0064ff', label: 'Exits' },
+      { color: '#00c8ff', label: 'Walkable' },
+    ].map(item =>
+      `<div class="creator-canvas-legend__item"><span class="creator-canvas-legend__swatch" style="background:${item.color};"></span>${item.label}</div>`
+    ).join('');
+    this._legend.style.display = 'none';
+    this.wrapper.appendChild(this._legend);
+
     // Bind event handlers
     this._onMouseDown = this._onMouseDown.bind(this);
     this._onMouseMove = this._onMouseMove.bind(this);
@@ -79,11 +98,13 @@ export class CanvasOverlay {
     this.mode = mode;
     this._deselect();
     this._updateCursor();
+    this._updateInstructionBar();
   }
 
   setRects(type, rects) {
     this._rects[type] = rects.map(r => ({ ...r }));
     this._rebuildType(type);
+    this._updateLegend();
   }
 
   setNpcMarkers(markers) {
@@ -111,6 +132,8 @@ export class CanvasOverlay {
     document.removeEventListener('mouseup', this._onMouseUp);
     document.removeEventListener('keydown', this._onKeyDown);
     this._overlay.remove();
+    this._instructionBar.remove();
+    this._legend.remove();
   }
 
   // --- Coordinate conversion ---
@@ -156,6 +179,13 @@ export class CanvasOverlay {
     el.dataset.index = index;
 
     this._positionRectEl(el, rect, style);
+
+    // Inline label
+    const label = document.createElement('div');
+    label.className = 'creator-rect-label';
+    const typeName = type.charAt(0).toUpperCase() + type.slice(1);
+    label.textContent = `${typeName} ${index + 1}`;
+    el.appendChild(label);
 
     const isSelected = this._selectedType === type && this._selectedIndex === index;
     if (isSelected) {
@@ -505,6 +535,22 @@ export class CanvasOverlay {
     const x2 = Math.min(320, Math.max(p1.x, p2.x));
     const y2 = Math.min(200, Math.max(p1.y, p2.y));
     return { x, y, width: x2 - x, height: y2 - y };
+  }
+
+  _updateInstructionBar() {
+    const instructions = {
+      select: 'Click to select \u00b7 Drag to move \u00b7 Corners to resize \u00b7 Del to remove',
+      drawHotspot: 'Click and drag to draw a hotspot rectangle',
+      drawExit: 'Click and drag to draw an exit rectangle',
+      drawWalkable: 'Click and drag to define a walkable area',
+      placeNpc: 'Click on the canvas to place NPC',
+    };
+    this._instructionBar.textContent = instructions[this.mode] || '';
+  }
+
+  _updateLegend() {
+    const hasAny = RECT_TYPES.some(type => this._rects[type].length > 0);
+    this._legend.style.display = hasAny ? '' : 'none';
   }
 
   _updateCursor() {

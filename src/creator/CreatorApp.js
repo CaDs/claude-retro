@@ -143,10 +143,10 @@ class CreatorApp {
 
     switch (this.activeTab) {
       case 'settings':
-        // Settings uses full canvas area for the card grid, hide side panels
+        // Settings uses full canvas area for the card grid, hide side panels but keep YAML
         leftPanel.style.display = 'none';
         rightPanel.style.display = 'none';
-        yamlPanel.style.display = 'none';
+        yamlPanel.style.display = '';
         if (this._panels.settings) this._panels.settings.render(canvasArea);
         break;
 

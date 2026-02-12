@@ -9,18 +9,29 @@
 import { CharacterGenerator } from '../../engine/CharacterGenerator.js';
 import { settings } from '../../settings/index.js';
 
-// --- Default trait values for new NPCs ---
-const DEFAULT_TRAITS = {
+// --- Base trait values for new NPCs ---
+const BASE_TRAITS = {
   bodyType: 'average',
   skinTone: 'fair',
   hairStyle: 'short',
   hairColor: 'brown',
-  clothing: 'tunic',
   clothingColor: '#4a86c8',
   facial: 'none',
-  accessory: 'none',
-  footwear: 'boots',
 };
+
+/** Return setting-appropriate default traits for new NPCs */
+function getDefaultTraits(settingId) {
+  switch (settingId) {
+    case 'scifi':
+      return { ...BASE_TRAITS, clothing: 'jumpsuit', footwear: 'boots', accessory: 'none' };
+    case 'contemporary':
+      return { ...BASE_TRAITS, clothing: 'jacket', footwear: 'sneakers', accessory: 'none' };
+    case 'eighties':
+      return { ...BASE_TRAITS, clothing: 'neon_jacket', footwear: 'high_tops', accessory: 'sunglasses' };
+    default:
+      return { ...BASE_TRAITS, clothing: 'tunic', footwear: 'boots', accessory: 'none' };
+  }
+}
 
 // --- Static trait options (setting-independent) ---
 const BODY_TYPES = ['slim', 'average', 'stocky', 'tall'];
@@ -93,7 +104,7 @@ export class NpcEditor {
       this.app.state.addNpc({
         id,
         name: 'New NPC',
-        traits: { ...DEFAULT_TRAITS },
+        traits: { ...getDefaultTraits(this.app.state.game.setting) },
         placements: [],
         responses: {},
       });

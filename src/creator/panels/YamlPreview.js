@@ -20,6 +20,31 @@ export class YamlPreview {
       }
     }
 
+    if (!yamlObj && !state.game.setting) {
+      // Show welcome text when no setting is chosen yet
+      const welcomeLines = [
+        '# Welcome to the Game Creator!',
+        '#',
+        '# This panel shows a live YAML preview of your game',
+        '# data as you build it. The YAML DSL format is what',
+        '# the engine reads at runtime.',
+        '#',
+        '# Get started by choosing a setting on the left.',
+        '# As you add rooms, NPCs, items, and puzzles, the',
+        '# corresponding YAML will appear here.',
+        '#',
+        '# You can export the final YAML bundle from the',
+        '# Export tab when your game is ready.',
+      ];
+      for (const line of welcomeLines) {
+        const span = document.createElement('span');
+        span.className = 'yaml-line';
+        span.textContent = line;
+        container.appendChild(span);
+      }
+      return;
+    }
+
     if (!yamlObj) {
       // Show game manifest
       yamlObj = { game: this._cleanGame(state) };
