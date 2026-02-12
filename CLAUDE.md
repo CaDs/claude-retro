@@ -36,7 +36,7 @@ src/
 │   ├── Renderer.js            # Double-buffer canvas (320×200 pixel art + hi-res text)
 │   ├── AssetLoader.js         # Asset cache (procedurally generated canvases)
 │   ├── InputManager.js        # Mouse input tracking
-│   ├── ProceduralAssets.js    # Generates all visual assets (backgrounds, icons, cursor)
+│   ├── ProceduralAssets.js    # Generates item icons, cursor, and props (room backgrounds use templates)
 │   ├── CharacterGenerator.js  # Trait-based procedural character sprite assembly
 │   ├── PixelArtToolkit.js     # Drawing primitives (darken, lighten, ellipseFill, polygonFill, line, etc.)
 │   ├── GameLoader.js          # Fetches & parses YAML game definition files
@@ -107,7 +107,7 @@ Game content lives in `public/content/enchanted_tankard/` as YAML files:
 
 ```
 public/content/enchanted_tankard/
-├── game.yaml          # Manifest: resolution, verbs, default responses, file references
+├── game.yaml          # Manifest: setting, resolution, verbs, default responses, file references
 ├── protagonist.yaml   # Player character traits
 ├── items.yaml         # Item definitions
 ├── npcs.yaml          # NPC definitions with traits, placements, dialogue refs
@@ -116,7 +116,7 @@ public/content/enchanted_tankard/
 └── dialogues/         # NPC dialogue trees (nodes, choices, actions, idle lines)
 ```
 
-The legacy `src/data/` JS files still exist but are **not used**. All content authoring should be done in YAML files or via the Game Creator.
+All content authoring should be done in YAML files or via the Game Creator.
 
 ### Content Loading Pipeline
 
@@ -175,11 +175,11 @@ Classic 9-verb system resolved by priority:
 - `InventorySystem.items` — array of item objects
 - Hidden hotspots — `hotspot.visible = false`
 - Dialogue exhaustion — tracks which NPCs have been fully talked to
-- Save/Load — `localStorage` (key: `enchanted_tankard_save`)
+- Save/Load — `localStorage` (key derived from game title, e.g. `the_enchanted_tankard_save`)
 
 ### Adding Content
 
-**New room**: Create `public/content/enchanted_tankard/rooms/new_room.yaml`, add to `game.yaml`'s `rooms` list, add a procedural background in `ProceduralAssets`, connect via exits.
+**New room**: Create `public/content/enchanted_tankard/rooms/new_room.yaml`, add to `game.yaml`'s `rooms` list, set `background: { template: 'setting/template_name' }` and optional `lighting:`, connect via exits.
 
 **New template**: Create `src/templates/{setting}/name.js` exporting `metadata` + `generate(ctx, P, params)`. Register in `src/templates/index.js`. Follow the 5-layer contract using `PixelArtToolkit` only.
 
