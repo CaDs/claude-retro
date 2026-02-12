@@ -7,10 +7,18 @@ import yaml from 'js-yaml';
 export class GameLoader {
   /**
    * Load a complete game from a manifest YAML file.
+   * If playtest data exists in sessionStorage (from Game Creator), use that instead.
    * @param {string} basePath - Base URL path to the content directory
    * @returns {Promise<object>} Normalized game definition
    */
   static async load(basePath) {
+    // Check for playtest data from Game Creator
+    const playtestData = this._checkPlaytestData();
+    if (playtestData) {
+      console.log('[GameLoader] Loading playtest data from Game Creator');
+      return playtestData;
+    }
+
     const manifest = await this._loadYaml(`${basePath}/game.yaml`);
     const game = manifest.game;
 
@@ -27,6 +35,7 @@ export class GameLoader {
 
     return {
       title: game.title,
+      setting: game.setting || null,
       version: game.version,
       resolution: game.resolution,
       viewportHeight: game.viewportHeight || 140,
@@ -137,6 +146,16 @@ export class GameLoader {
       // Preserve visuals array for Z-sorted prop rendering
       room.visuals = room.visuals || [];
 
+      // Preserve background template fields (new template system)
+      // background: { template, params, palette, paletteOverrides }
+      // Falls back to legacy generator path if no template is set
+      room.background = room.background || {};
+
+      // Preserve lighting definition (new YAML-driven lighting)
+      // lighting: { ambient: { color, intensity }, lights: [...] }
+      // Falls back to legacy hardcoded lighting if not present
+      room.lighting = room.lighting || null;
+
       // NPCs are managed by CharacterSystem, not rooms
       // but we keep an empty array for compat
       room.npcs = [];
@@ -208,5 +227,23 @@ export class GameLoader {
       }
     }
     return result;
+  }
+
+  /**
+   * Check sessionStorage for playtest data injected by Game Creator.
+   * PlayTestLauncher.launch() stores serialized game data here.
+   * @returns {object|null}
+   */
+  static _checkPlaytestData() {
+    try {
+      const raw = sessionStorage.getItem('creator_playtest_data');
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      // Clear after reading so refreshing loads normally from YAML
+      sessionStorage.removeItem('creator_playtest_data');
+      return data;
+    } catch {
+      return null;
+    }
   }
 }

@@ -37,6 +37,7 @@ game:
     - rooms/village_square.yaml
     - rooms/tavern.yaml
     - rooms/forest_path.yaml
+    - rooms/temple.yaml
   dialogues:
     - dialogues/bartender.yaml
     - dialogues/bartender_after_key.yaml

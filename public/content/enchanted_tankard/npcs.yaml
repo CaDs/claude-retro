@@ -68,12 +68,6 @@ npcs:
 
     dialogue: hermit
 
-    # Schedule: hermit visits village square in the afternoon
-    schedule:
-      afternoon:
-        room: village_square
-        position: { x: 200, y: 85 }
-
     barks:
       - "The forest speaks to those who listen..."
       - "*mutters about herbs*"

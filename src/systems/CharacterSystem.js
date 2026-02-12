@@ -3,7 +3,6 @@ import { CharacterGenerator } from '../engine/CharacterGenerator.js';
 /**
  * CharacterSystem — Manages protagonist and NPC characters.
  * Handles NPC placement, rendering, and interaction lookups.
- * Supports time-of-day schedules for NPC positioning.
  */
 export class CharacterSystem {
   constructor(content) {
@@ -13,32 +12,13 @@ export class CharacterSystem {
 
   /**
    * Get NPCs placed in the given room, with their position and size.
-   * If timeOfDay is provided, checks NPC schedules for overrides.
    * @param {string} roomId
-   * @param {string} [timeOfDay] - 'morning', 'afternoon', 'evening', or 'night'
    */
-  getNpcsInRoom(roomId, timeOfDay) {
+  getNpcsInRoom(roomId) {
     const allNpcs = this.content.getAllNpcs();
     const results = [];
 
     for (const npc of allNpcs) {
-      // Check schedule override first
-      if (timeOfDay && npc.schedule && npc.schedule[timeOfDay]) {
-        const sched = npc.schedule[timeOfDay];
-        if (sched.room === roomId) {
-          results.push(this._buildNpcData(npc, {
-            room: roomId,
-            position: sched.position || npc.placements?.[0]?.position,
-            size: sched.size,
-            facing: sched.facing,
-            walkTo: sched.walkTo,
-          }));
-        }
-        // If schedule specifies a different room, NPC is not in this room
-        continue;
-      }
-
-      // Default placement
       if (!npc.placements) continue;
       const placement = npc.placements.find(p => p.room === roomId);
       if (placement) {
