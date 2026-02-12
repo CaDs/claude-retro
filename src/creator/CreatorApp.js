@@ -80,6 +80,13 @@ class CreatorApp {
     ]);
 
     this.state.onChange(() => this._onStateChange());
+
+    // Restore session if available
+    const restored = this.state.loadFromLocalStorage();
+    if (restored && this.state.game.setting) {
+      console.log('[CreatorApp] Restored session from localStorage');
+    }
+
     this._renderTab();
   }
 
@@ -96,6 +103,7 @@ class CreatorApp {
       <header class="creator-header">
         <span class="creator-header__logo">Game Creator</span>
         <nav class="creator-tabs">${tabButtons}</nav>
+        <button class="creator-btn creator-btn--small creator-header__new-btn" id="new-game-btn">New Game</button>
       </header>
       <aside class="creator-left-panel">
         <div class="creator-left-panel__body"></div>
@@ -116,6 +124,12 @@ class CreatorApp {
       const btn = e.target.closest('.creator-tab');
       if (!btn || btn.disabled) return;
       this.setTab(btn.dataset.tab);
+    });
+
+    this.root.querySelector('#new-game-btn').addEventListener('click', () => {
+      if (!confirm('Start a new game? All unsaved progress will be lost.')) return;
+      CreatorState.clearSavedSession();
+      window.location.reload();
     });
   }
 

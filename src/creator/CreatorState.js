@@ -72,6 +72,9 @@ export class CreatorState {
     // ----- observers -----
     /** @type {Array<(state: CreatorState) => void>} */
     this._listeners = [];
+
+    // ----- persistence -----
+    this._saveTimer = null;
   }
 
   // ========================================================================
@@ -95,6 +98,9 @@ export class CreatorState {
     for (const fn of this._listeners) {
       try { fn(this); } catch (e) { console.error('[CreatorState] listener error:', e); }
     }
+    // Debounced auto-save
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => this.saveToLocalStorage(), 500);
   }
 
   // ========================================================================
@@ -357,6 +363,60 @@ export class CreatorState {
   }
 
   // ========================================================================
+  // Session Persistence
+  // ========================================================================
+
+  static STORAGE_KEY = 'creator_session';
+
+  /**
+   * Serialize current state to localStorage.
+   */
+  saveToLocalStorage() {
+    try {
+      const data = {
+        game: this.game,
+        rooms: this.rooms,
+        npcs: this.npcs,
+        items: this.items,
+        puzzles: this.puzzles,
+        dialogues: this.dialogues,
+      };
+      localStorage.setItem(CreatorState.STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('[CreatorState] Failed to save to localStorage:', e);
+    }
+  }
+
+  /**
+   * Restore state from localStorage.
+   * @returns {boolean} True if state was restored.
+   */
+  loadFromLocalStorage() {
+    try {
+      const raw = localStorage.getItem(CreatorState.STORAGE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (data.game) this.game = { ...this.game, ...data.game };
+      if (data.rooms) this.rooms = data.rooms;
+      if (data.npcs) this.npcs = data.npcs;
+      if (data.items) this.items = data.items;
+      if (data.puzzles) this.puzzles = data.puzzles;
+      if (data.dialogues) this.dialogues = data.dialogues;
+      return true;
+    } catch (e) {
+      console.warn('[CreatorState] Failed to load from localStorage:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Clear saved session from localStorage.
+   */
+  static clearSavedSession() {
+    localStorage.removeItem(CreatorState.STORAGE_KEY);
+  }
+
+  // ========================================================================
   // Serialization  —  state -> YAML-ready objects
   // ========================================================================
 
@@ -374,6 +434,7 @@ export class CreatorState {
     return {
       game: {
         title:            g.title,
+        setting:          g.setting,
         version:          g.version,
         resolution:       { width: g.resolution.width, height: g.resolution.height },
         viewportHeight:   g.viewportHeight,
@@ -381,6 +442,7 @@ export class CreatorState {
         startPosition:    { x: g.startPosition.x, y: g.startPosition.y },
         verbs:            g.verbs.map(v => ({ id: v.id, label: v.label })),
         defaultResponses: { ...g.defaultResponses },
+        protagonist:      'protagonist.yaml',
         items:            'items.yaml',
         npcs:             'npcs.yaml',
         puzzles:          'puzzles.yaml',
@@ -521,6 +583,7 @@ export class CreatorState {
 
   /**
    * Produce the `puzzles.yaml` object tree.
+   * Translates from editor format to engine DSL format.
    * @returns {object}
    */
   toPuzzlesYaml() {
@@ -530,9 +593,36 @@ export class CreatorState {
           id:      p.id,
           trigger: _clone(p.trigger),
         };
-        if (p.conditions && p.conditions.length > 0) obj.conditions = _clone(p.conditions);
-        if (p.actions && p.actions.length > 0)        obj.actions    = _clone(p.actions);
-        if (p.failText)                                obj.failText   = p.failText;
+
+        // Translate conditions from editor format to engine DSL
+        if (p.conditions && p.conditions.length > 0) {
+          obj.conditions = p.conditions.map(c => {
+            if (c.type === 'hasItem')   return { hasItem: c.value };
+            if (c.type === '!hasItem')  return { notItem: c.value };
+            if (c.type === 'hasFlag')   return { hasFlag: c.value };
+            if (c.type === '!hasFlag')  return { notFlag: c.value };
+            return _clone(c); // fallback for unknown formats
+          });
+        }
+
+        // Translate actions from editor format to engine DSL
+        if (p.actions && p.actions.length > 0) {
+          obj.actions = p.actions.map(a => {
+            if (a.type === 'say')          return { say: a.text };
+            if (a.type === 'addItem')      return { addItem: a.itemId };
+            if (a.type === 'removeItem')   return { removeItem: a.itemId };
+            if (a.type === 'setFlag')      return { setFlag: a.flag };
+            if (a.type === 'removeFlag')   return { removeFlag: a.flag };
+            if (a.type === 'walkTo')       return { walkTo: { x: a.x, y: a.y } };
+            if (a.type === 'changeRoom')   return { changeRoom: { room: a.roomId, spawnX: a.spawnX, spawnY: a.spawnY } };
+            if (a.type === 'showHotspot')  return { showHotspot: { id: a.hotspotId } };
+            if (a.type === 'hideHotspot')  return { hideHotspot: { id: a.hotspotId } };
+            if (a.type === 'playSound')    return { playSound: a.sound };
+            return _clone(a); // fallback for unknown formats
+          });
+        }
+
+        if (p.failText) obj.failText = p.failText;
         return obj;
       }),
     };

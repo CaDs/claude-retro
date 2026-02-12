@@ -1,9 +1,9 @@
 /**
  * CanvasOverlay.js — Mouse interaction system for drawing/editing rectangles
- * on a 320x200 pixel-art preview canvas in the game creator tool.
+ * on a 320x140 pixel-art preview canvas in the game creator tool.
  *
  * Uses DOM divs positioned over the canvas wrapper for visual overlays.
- * All coordinates are translated between screen pixels and the 320x200
+ * All coordinates are translated between screen pixels and the 320x140
  * internal coordinate system via a configurable scale factor.
  */
 
@@ -50,6 +50,7 @@ export class CanvasOverlay {
     this.onRectResized = null;
     this.onRectSelected = null;
     this.onRectDeleted = null;
+    this.onPropPlaced = null;
     this.onNpcPlaced = null;
 
     // Create overlay container
@@ -320,6 +321,12 @@ export class CanvasOverlay {
 
     const internal = this._screenToInternal(e.clientX, e.clientY);
 
+    // Prop placement mode
+    if (this.mode === 'placeProp') {
+      if (this.onPropPlaced) this.onPropPlaced(internal.x, internal.y);
+      return;
+    }
+
     // NPC placement mode
     if (this.mode === 'placeNpc') {
       if (this.onNpcPlaced) this.onNpcPlaced(internal.x, internal.y);
@@ -458,7 +465,7 @@ export class CanvasOverlay {
 
     const rect = this._rects[type][index];
     rect.x = Math.max(0, Math.min(320 - orig.width, orig.x + dx));
-    rect.y = Math.max(0, Math.min(200 - orig.height, orig.y + dy));
+    rect.y = Math.max(0, Math.min(140 - orig.height, orig.y + dy));
 
     const el = this._rectEls[type][index];
     if (el) this._positionRectEl(el, rect, TYPE_STYLES[type]);
@@ -505,7 +512,7 @@ export class CanvasOverlay {
     }
     if (handle.includes('s')) {
       h = Math.max(MIN_RECT_SIZE, internal.y - orig.y);
-      h = Math.min(200 - y, h);
+      h = Math.min(140 - y, h);
     }
 
     const rect = this._rects[type][index];
@@ -533,7 +540,7 @@ export class CanvasOverlay {
     const x = Math.max(0, Math.min(p1.x, p2.x));
     const y = Math.max(0, Math.min(p1.y, p2.y));
     const x2 = Math.min(320, Math.max(p1.x, p2.x));
-    const y2 = Math.min(200, Math.max(p1.y, p2.y));
+    const y2 = Math.min(140, Math.max(p1.y, p2.y));
     return { x, y, width: x2 - x, height: y2 - y };
   }
 
@@ -543,6 +550,7 @@ export class CanvasOverlay {
       drawHotspot: 'Click and drag to draw a hotspot rectangle',
       drawExit: 'Click and drag to draw an exit rectangle',
       drawWalkable: 'Click and drag to define a walkable area',
+      placeProp: 'Select a prop type, then click to place it on the canvas',
       placeNpc: 'Click on the canvas to place NPC',
     };
     this._instructionBar.textContent = instructions[this.mode] || '';
@@ -560,8 +568,9 @@ export class CanvasOverlay {
       case 'drawWalkable':
         this._overlay.style.cursor = 'crosshair';
         break;
+      case 'placeProp':
       case 'placeNpc':
-        this._overlay.style.cursor = 'cell';
+        this._overlay.style.cursor = 'crosshair';
         break;
       default:
         this._overlay.style.cursor = 'default';

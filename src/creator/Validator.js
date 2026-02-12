@@ -139,47 +139,54 @@ export class Validator {
       }
     }
 
-    // Check: puzzle conditions reference valid items/flags
+    // Check: puzzle conditions reference valid items/flags (editor format)
     for (const puzzle of state.puzzles) {
       if (!puzzle.conditions) continue;
       for (const condition of puzzle.conditions) {
-        if (condition.hasItem) {
-          if (!state.getItem(condition.hasItem)) {
+        // Check hasItem conditions (editor format: { type: 'hasItem', value: 'itemId' })
+        if ((condition.type === 'hasItem' || condition.type === '!hasItem') && condition.value) {
+          if (!state.getItem(condition.value)) {
             issues.push({
               level: 'warning',
-              message: `Puzzle "${puzzle.id}" condition references non-existent item "${condition.hasItem}".`,
+              message: `Puzzle "${puzzle.id}" condition references non-existent item "${condition.value}".`,
             });
           }
         }
       }
     }
 
-    // Check: puzzle actions reference valid targets
+    // Check: puzzle actions reference valid targets (editor format)
     for (const puzzle of state.puzzles) {
       if (!puzzle.actions) continue;
       for (const action of puzzle.actions) {
-        // Check giveItem references
-        if (action.giveItem && !state.getItem(action.giveItem)) {
-          issues.push({
-            level: 'warning',
-            message: `Puzzle "${puzzle.id}" action references non-existent item "${action.giveItem}".`,
-          });
+        // Check addItem references (editor format: { type: 'addItem', itemId: 'itemId' })
+        if (action.type === 'addItem' && action.itemId) {
+          if (!state.getItem(action.itemId)) {
+            issues.push({
+              level: 'warning',
+              message: `Puzzle "${puzzle.id}" action references non-existent item "${action.itemId}".`,
+            });
+          }
         }
 
-        // Check removeItem references
-        if (action.removeItem && !state.getItem(action.removeItem)) {
-          issues.push({
-            level: 'warning',
-            message: `Puzzle "${puzzle.id}" action references non-existent item "${action.removeItem}".`,
-          });
+        // Check removeItem references (editor format: { type: 'removeItem', itemId: 'itemId' })
+        if (action.type === 'removeItem' && action.itemId) {
+          if (!state.getItem(action.itemId)) {
+            issues.push({
+              level: 'warning',
+              message: `Puzzle "${puzzle.id}" action references non-existent item "${action.itemId}".`,
+            });
+          }
         }
 
-        // Check changeRoom references
-        if (action.changeRoom && !state.getRoom(action.changeRoom)) {
-          issues.push({
-            level: 'warning',
-            message: `Puzzle "${puzzle.id}" action references non-existent room "${action.changeRoom}".`,
-          });
+        // Check changeRoom references (editor format: { type: 'changeRoom', roomId: 'roomId' })
+        if (action.type === 'changeRoom' && action.roomId) {
+          if (!state.getRoom(action.roomId)) {
+            issues.push({
+              level: 'warning',
+              message: `Puzzle "${puzzle.id}" action references non-existent room "${action.roomId}".`,
+            });
+          }
         }
       }
     }

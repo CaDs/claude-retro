@@ -109,7 +109,10 @@ export class DialogueEditor {
     // Add button handler
     leftPanel.querySelector('#add-dialogue-btn').addEventListener('click', () => {
       const count = dialogueIds.length + 1;
-      const id = 'dialogue_' + count;
+      let id = 'dialogue_' + count;
+      while (this.app.state.getDialogue(id)) {
+        id = 'dialogue_' + Date.now();
+      }
       this.app.state.setDialogue(id, {
         id,
         nodes: {
@@ -368,7 +371,15 @@ export class DialogueEditor {
     section.appendChild(keyField);
 
     // Speaker field
-    const speakerField = this._createField('Speaker', 'text', node.speaker || '', (val) => {
+    const speakerOptions = [
+      { value: '', text: '-- Select Speaker --' },
+      { value: 'Player', text: 'Player' },
+      ...(this.app.state.npcs || []).map(npc => ({
+        value: npc.id,
+        text: npc.name || npc.id
+      }))
+    ];
+    const speakerField = this._createSelectField('Speaker', speakerOptions, node.speaker || '', (val) => {
       node.speaker = val;
       this._saveNodes(tree);
     });
@@ -396,11 +407,15 @@ export class DialogueEditor {
     section.appendChild(textField);
 
     // Next field
-    const nextField = this._createField('Next Node', 'text', node.next || '', (val) => {
-      node.next = val.trim() || null;
+    const nodeKeys = Object.keys(tree.nodes || {}).filter(key => key !== nodeKey);
+    const nextNodeOptions = [
+      { value: '', text: '-- End Conversation --' },
+      ...nodeKeys.map(key => ({ value: key, text: key }))
+    ];
+    const nextField = this._createSelectField('Next Node', nextNodeOptions, node.next || '', (val) => {
+      node.next = val || null;
       this._saveNodes(tree);
     });
-    nextField.querySelector('input').placeholder = 'Node key or blank to end';
     section.appendChild(nextField);
 
     // --- Action section (collapsible) ---
@@ -607,11 +622,15 @@ export class DialogueEditor {
     card.appendChild(textField);
 
     // Next field
-    const nextField = this._createField('Next Node', 'text', choice.next || '', (val) => {
-      choice.next = val.trim() || null;
+    const choiceNodeKeys = Object.keys(tree.nodes || {});
+    const choiceNextNodeOptions = [
+      { value: '', text: '-- End Conversation --' },
+      ...choiceNodeKeys.map(key => ({ value: key, text: key }))
+    ];
+    const nextField = this._createSelectField('Next Node', choiceNextNodeOptions, choice.next || '', (val) => {
+      choice.next = val || null;
       this._saveNodes(tree);
     });
-    nextField.querySelector('input').placeholder = 'Node key or blank to end';
     card.appendChild(nextField);
 
     // Condition section (inline collapsible)
@@ -868,6 +887,42 @@ export class DialogueEditor {
     input.value = value || '';
     input.addEventListener('change', () => onChange(input.value));
     field.appendChild(input);
+
+    return field;
+  }
+
+  /**
+   * Create a labeled select dropdown field.
+   * @param {string} label - Field label
+   * @param {Array} options - Array of { value, text } objects
+   * @param {*} currentValue - Current selected value
+   * @param {Function} onChange - Callback when selection changes
+   */
+  _createSelectField(label, options, currentValue, onChange) {
+    const field = document.createElement('div');
+    field.className = 'creator-field';
+    field.style.cssText = 'margin-top:8px;';
+
+    const labelEl = document.createElement('label');
+    labelEl.className = 'creator-field__label';
+    labelEl.textContent = label;
+    field.appendChild(labelEl);
+
+    const select = document.createElement('select');
+    select.className = 'creator-select';
+
+    for (const option of options) {
+      const opt = document.createElement('option');
+      opt.value = option.value;
+      opt.textContent = option.text;
+      if (option.value === currentValue) {
+        opt.selected = true;
+      }
+      select.appendChild(opt);
+    }
+
+    select.addEventListener('change', () => onChange(select.value));
+    field.appendChild(select);
 
     return field;
   }

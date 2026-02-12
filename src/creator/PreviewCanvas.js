@@ -12,7 +12,7 @@ export class PreviewCanvas {
 
     this.canvas = document.createElement('canvas');
     this.canvas.width = 320 * this.scale;
-    this.canvas.height = 200 * this.scale;
+    this.canvas.height = 140 * this.scale;
     this.ctx = this.canvas.getContext('2d');
     this.ctx.imageSmoothingEnabled = false;
 
@@ -22,7 +22,7 @@ export class PreviewCanvas {
     // Internal buffer at native resolution
     this._buf = document.createElement('canvas');
     this._buf.width = 320;
-    this._buf.height = 200;
+    this._buf.height = 140;
     this._bufCtx = this._buf.getContext('2d');
     this._bufCtx.imageSmoothingEnabled = false;
 
@@ -36,7 +36,7 @@ export class PreviewCanvas {
   renderRoom(roomDef) {
     const bufCtx = this._bufCtx;
     bufCtx.fillStyle = '#000000';
-    bufCtx.fillRect(0, 0, 320, 200);
+    bufCtx.fillRect(0, 0, 320, 140);
 
     if (roomDef && roomDef.background && roomDef.background.template) {
       const templateId = roomDef.background.template;
@@ -52,10 +52,6 @@ export class PreviewCanvas {
         TemplateRegistry.generate(templateId, bufCtx, palette, params);
       }
     }
-
-    // UI chrome area
-    bufCtx.fillStyle = '#1a1a1a';
-    bufCtx.fillRect(0, 140, 320, 60);
 
     // Overlays
     if (this.showHotspots && roomDef && roomDef.hotspots) {
@@ -73,6 +69,24 @@ export class PreviewCanvas {
       bufCtx.fillStyle = '#0088ff';
       for (const r of (roomDef.walkableArea.rects || [])) {
         bufCtx.fillRect(r.x, r.y, r.width, r.height);
+      }
+      bufCtx.restore();
+    }
+
+    // Render prop markers
+    if (roomDef && roomDef.visuals && roomDef.visuals.length > 0) {
+      bufCtx.save();
+      for (const prop of roomDef.visuals) {
+        // Small colored marker
+        bufCtx.fillStyle = 'rgba(255, 165, 0, 0.7)';
+        bufCtx.fillRect(prop.x - 4, prop.y - 4, 8, 8);
+        bufCtx.strokeStyle = '#fff';
+        bufCtx.lineWidth = 1;
+        bufCtx.strokeRect(prop.x - 4, prop.y - 4, 8, 8);
+        // Label
+        bufCtx.fillStyle = '#fff';
+        bufCtx.font = '5px monospace';
+        bufCtx.fillText((prop.type || '').substring(0, 8), prop.x - 4, prop.y - 6);
       }
       bufCtx.restore();
     }

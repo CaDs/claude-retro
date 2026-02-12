@@ -20,6 +20,54 @@ export class YamlPreview {
       }
     }
 
+    // Show NPC YAML if a specific NPC is selected, or all NPCs
+    if (!yamlObj && this.app.activeTab === 'npcs') {
+      if (this.app._panels.npcs?.selectedNpcId) {
+        const npc = state.getNpc(this.app._panels.npcs.selectedNpcId);
+        if (npc) {
+          yamlObj = { npc: npc };
+        }
+      } else if (state.npcs && state.npcs.length) {
+        yamlObj = { npcs: state.npcs };
+      }
+    }
+
+    // Show Item YAML if a specific item is selected, or all items
+    if (!yamlObj && this.app.activeTab === 'items') {
+      if (this.app._panels.items?.selectedItemId) {
+        const item = state.getItem(this.app._panels.items.selectedItemId);
+        if (item) {
+          yamlObj = { item: item };
+        }
+      } else if (state.items && state.items.length) {
+        yamlObj = { items: state.items };
+      }
+    }
+
+    // Show Puzzle YAML if a specific puzzle is selected, or all puzzles
+    if (!yamlObj && this.app.activeTab === 'puzzles') {
+      if (this.app._panels.puzzles?.selectedPuzzleId) {
+        const puzzle = state.getPuzzle(this.app._panels.puzzles.selectedPuzzleId);
+        if (puzzle) {
+          yamlObj = { puzzle: puzzle };
+        }
+      } else if (state.puzzles && state.puzzles.length) {
+        yamlObj = { puzzles: state.puzzles };
+      }
+    }
+
+    // Show Dialogue YAML if a specific dialogue is selected, or all dialogues
+    if (!yamlObj && this.app.activeTab === 'dialogues') {
+      if (this.app._panels.dialogues?.selectedDialogueId) {
+        const dialogue = state.getDialogue(this.app._panels.dialogues.selectedDialogueId);
+        if (dialogue) {
+          yamlObj = { dialogue: dialogue };
+        }
+      } else if (state.dialogues && Object.keys(state.dialogues).length) {
+        yamlObj = { dialogues: state.dialogues };
+      }
+    }
+
     if (!yamlObj && !state.game.setting) {
       // Show welcome text when no setting is chosen yet
       const welcomeLines = [

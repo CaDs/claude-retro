@@ -7,6 +7,7 @@
 
 import { Validator } from '../Validator.js';
 import { ExportBuilder } from '../ExportBuilder.js';
+import { PlayTestLauncher } from '../PlayTestLauncher.js';
 
 export class ExportPanel {
   constructor(app) {
@@ -315,11 +316,10 @@ export class ExportPanel {
   }
 
   /**
-   * Play test the game (placeholder).
+   * Play test the game.
    */
   _playTest() {
-    this._showToast('Play testing feature coming soon!', 'warning');
-    // TODO: In a future phase, load the game into a preview engine or open in new window
+    PlayTestLauncher.launch(this.app.state);
   }
 
   // ========================================================================

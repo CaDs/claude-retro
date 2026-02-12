@@ -36,7 +36,7 @@ export class TemplatePicker {
 
   _getThumb(meta) {
     if (this._thumbCache.has(meta.id)) {
-      return this._thumbCache.get(meta.id).cloneNode(true);
+      return this._makeImg(this._thumbCache.get(meta.id));
     }
 
     const buf = document.createElement('canvas');
@@ -57,12 +57,19 @@ export class TemplatePicker {
 
     const thumb = document.createElement('canvas');
     thumb.width = 160; thumb.height = 70;
-    thumb.style.cssText = 'width:100%;height:100%;display:block;image-rendering:pixelated;';
     const thumbCtx = thumb.getContext('2d');
     thumbCtx.imageSmoothingEnabled = false;
     thumbCtx.drawImage(buf, 0, 0, 160, 70);
 
-    this._thumbCache.set(meta.id, thumb);
-    return thumb.cloneNode(true);
+    const dataUrl = thumb.toDataURL();
+    this._thumbCache.set(meta.id, dataUrl);
+    return this._makeImg(dataUrl);
+  }
+
+  _makeImg(src) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.style.cssText = 'width:100%;height:100%;display:block;image-rendering:pixelated;';
+    return img;
   }
 }

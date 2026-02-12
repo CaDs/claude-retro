@@ -92,7 +92,10 @@ export class RoomEditor {
     leftPanel.appendChild(list);
 
     leftPanel.querySelector('#add-room-btn').addEventListener('click', () => {
-      const id = 'room_' + (this.app.state.rooms.length + 1);
+      let id = 'room_' + (this.app.state.rooms.length + 1);
+      while (this.app.state.getRoom(id)) {
+        id = 'room_' + Date.now();
+      }
       this.app.state.addRoom({
         id,
         name: 'New Room',
@@ -209,7 +212,14 @@ export class RoomEditor {
         });
         break;
       case 'props':
-        this.propPlacer.render(content, this.selectedRoomId, (index) => {});
+        this.propPlacer.render(content, this.selectedRoomId, (index) => {
+          // When a prop is selected in the list, deselect brush
+          if (this.overlay && index !== null) {
+            this.overlay.setMode('select');
+          } else if (this.overlay) {
+            this.overlay.setMode('placeProp');
+          }
+        });
         break;
     }
 
@@ -373,8 +383,22 @@ export class RoomEditor {
       this._renderRight();
     };
 
+    this.overlay.onPropPlaced = (x, y) => {
+      const brush = this.propPlacer.getActiveBrush();
+      if (!brush) return;
+      const room = this.app.state.getRoom(this.selectedRoomId);
+      if (!room) return;
+      const visuals = [...(room.visuals || []), { type: brush, x, y }];
+      this.app.state.updateRoom(this.selectedRoomId, { visuals });
+      this._renderRight();
+    };
+
     this.overlay.onNpcPlaced = (x, y) => {
-      // Will be used by NPC placement mode in Phase 3
+      const npcEditor = this.app._panels.npcs;
+      if (!npcEditor || !npcEditor._pendingPlacement) return;
+
+      npcEditor.applyPlacement(x, y);
+      this.overlay.setMode('select');
     };
   }
 
@@ -403,7 +427,7 @@ export class RoomEditor {
       hotspots: 'drawHotspot',
       exits: 'drawExit',
       walkable: 'drawWalkable',
-      props: 'select',
+      props: 'placeProp',
     };
     this.overlay.setMode(modeMap[this.editMode] || 'select');
     this._syncOverlay();

@@ -3,6 +3,15 @@
  *
  * Serializes the current Game Creator state to sessionStorage
  * and opens the main game (index.html) in a new tab for live testing.
+ *
+ * The output of _buildGameData() MUST exactly match the object shape
+ * returned by GameLoader.load() so the engine can consume it directly.
+ * Key normalizations:
+ *   - rooms → keyed map, hotspots/exits flattened (rect → x/y/width/height)
+ *   - items → keyed map
+ *   - puzzles → array with _key field, conditions/actions in engine DSL
+ *   - dialogues → keyed map
+ *   - flat top-level (no game: wrapper)
  */
 
 export class PlayTestLauncher {
@@ -13,13 +22,8 @@ export class PlayTestLauncher {
    * @param {import('./CreatorState').CreatorState} state - The creator state to test
    */
   static launch(state) {
-    // Build a game data object that matches what GameLoader.load() produces
     const gameData = PlayTestLauncher._buildGameData(state);
-
-    // Store in sessionStorage so it survives the new tab open
     sessionStorage.setItem(PlayTestLauncher.STORAGE_KEY, JSON.stringify(gameData));
-
-    // Open the game in a new tab with a query param to signal playtest mode
     window.open('index.html?playtest=1', '_blank');
   }
 
@@ -33,7 +37,6 @@ export class PlayTestLauncher {
     if (!raw) return null;
     try {
       const data = JSON.parse(raw);
-      // Clear after reading so refreshing the game page loads normally
       sessionStorage.removeItem(PlayTestLauncher.STORAGE_KEY);
       return data;
     } catch {
@@ -42,164 +45,262 @@ export class PlayTestLauncher {
   }
 
   /**
-   * Build a game data structure matching what GameLoader produces.
+   * Build a game data structure matching GameLoader.load() output exactly.
+   * See GameLoader.js:36-53 for the reference shape.
    * @private
    */
   static _buildGameData(state) {
-    // Handle null/undefined state gracefully
-    if (!state) {
-      return PlayTestLauncher._getDefaultGameData();
-    }
+    if (!state) return PlayTestLauncher._getDefaultGameData();
 
     const game = state.game || {};
-    const rooms = state.rooms || [];
-    const npcs = state.npcs || [];
-    const items = state.items || [];
-    const puzzles = state.puzzles || [];
-    const dialogues = state.dialogues || [];
-
-    // Build rooms array with normalized format
-    const normalizedRooms = rooms.map(room => ({
-      id: room.id || 'unknown_room',
-      name: room.name || 'Unnamed Room',
-      background: room.background || {},
-      hotspots: (room.hotspots || []).map(h => ({
-        id: h.id || 'unknown_hotspot',
-        name: h.name || 'Unnamed Hotspot',
-        x: h.rect?.x ?? 0,
-        y: h.rect?.y ?? 0,
-        width: h.rect?.width ?? 10,
-        height: h.rect?.height ?? 10,
-        walkTo: h.walkTo || null,
-        visible: h.visible !== false,
-        responses: h.responses || {},
-      })),
-      exits: (room.exits || []).map(e => ({
-        id: e.id || 'unknown_exit',
-        name: e.name || 'Unnamed Exit',
-        x: e.rect?.x ?? 0,
-        y: e.rect?.y ?? 0,
-        width: e.rect?.width ?? 10,
-        height: e.rect?.height ?? 10,
-        target: e.target || '',
-        walkTo: e.walkTo || null,
-        spawnAt: e.spawnAt || null,
-        lookAt: e.lookAt || `Exit to ${e.target || 'another room'}`,
-      })),
-      walkableAreas: room.walkableAreas || [],
-      visuals: room.visuals || [],
-    }));
-
-    // Build NPCs array
-    const normalizedNpcs = npcs.map(npc => ({
-      id: npc.id || 'unknown_npc',
-      name: npc.name || 'Unnamed NPC',
-      traits: npc.traits || {},
-      placements: (npc.placements || []).map(p => ({
-        room: p.room || '',
-        x: p.x ?? 0,
-        y: p.y ?? 0,
-        direction: p.direction || 'right',
-      })),
-      dialogue: npc.dialogue || null,
-      responses: npc.responses || {},
-      idleLines: npc.idleLines || [],
-    }));
-
-    // Build items array
-    const normalizedItems = items.map(item => ({
-      id: item.id || 'unknown_item',
-      name: item.name || 'Unnamed Item',
-      icon: item.icon || 'default',
-      useDefault: item.useDefault || '',
-      responses: item.responses || {},
-    }));
-
-    // Build puzzles array
-    const normalizedPuzzles = puzzles.map(puzzle => ({
-      id: puzzle.id || 'unknown_puzzle',
-      trigger: puzzle.trigger || '',
-      conditions: puzzle.conditions || [],
-      actions: puzzle.actions || [],
-    }));
-
-    // Build dialogues
-    const normalizedDialogues = dialogues.map(dlg => ({
-      id: dlg.id || 'unknown_dialogue',
-      nodes: (dlg.nodes || []).map(node => ({
-        id: node.id || 'unknown_node',
-        text: node.text || '',
-        choices: node.choices || [],
-        next: node.next || null,
-        action: node.action || null,
-      })),
-      idleLines: dlg.idleLines || [],
-    }));
-
-    // Determine start room (first room if not specified)
-    const startRoom = game.startRoom || (normalizedRooms[0]?.id ?? '');
-
-    // Default verbs if none specified
-    const defaultVerbs = [
-      'Walk to', 'Look at', 'Pick up', 'Use', 'Open', 'Close', 'Talk to', 'Push', 'Pull'
-    ];
 
     return {
-      game: {
-        title: game.title || 'Playtest Game',
-        resolution: game.resolution || { width: 320, height: 200 },
-        startRoom: startRoom,
-        verbs: (game.verbs && game.verbs.length > 0) ? game.verbs : defaultVerbs,
-        defaultResponses: game.defaultResponses || {},
-      },
-      rooms: normalizedRooms,
-      npcs: normalizedNpcs,
-      items: normalizedItems,
-      puzzles: normalizedPuzzles,
-      dialogues: normalizedDialogues,
+      title:            game.title || 'Playtest Game',
+      setting:          game.setting || null,
+      version:          game.version || '1.0',
+      resolution:       game.resolution || { width: 320, height: 200 },
+      viewportHeight:   game.viewportHeight || 140,
+      startRoom:        game.startRoom || ((state.rooms || [])[0]?.id ?? ''),
+      startPosition:    game.startPosition || { x: 160, y: 120 },
+      verbs:            game.verbs || [],
+      defaultResponses: game.defaultResponses || {},
+      protagonist:      PlayTestLauncher._buildProtagonist(game.setting),
+      items:            PlayTestLauncher._buildItems(state.items || []),
+      npcs:             state.npcs || [],
+      puzzles:          PlayTestLauncher._buildPuzzles(state.puzzles || []),
+      rooms:            PlayTestLauncher._buildRooms(state.rooms || []),
+      dialogues:        PlayTestLauncher._buildDialogues(state.dialogues || {}),
+      music:            null,
     };
   }
 
   /**
-   * Return a minimal valid game data structure for empty state.
+   * Build rooms as a keyed map with flattened hotspots/exits.
+   * Matches GameLoader._normalizeRooms() output (GameLoader.js:104-165).
+   * @private
+   */
+  static _buildRooms(rooms) {
+    const map = {};
+    for (const room of rooms) {
+      map[room.id] = {
+        id:           room.id,
+        name:         room.name || 'Unnamed Room',
+        description:  room.description || '',
+        background:   room.background || {},
+        lighting:     room.lighting || null,
+        walkableArea: room.walkableArea || { rects: [] },
+        visuals:      room.visuals || [],
+        npcs:         [],  // NPCs managed by CharacterSystem, not rooms
+        hotspots:     (room.hotspots || []).map(hs => ({
+          id:       hs.id,
+          name:     hs.name,
+          x:        hs.rect?.x ?? 0,
+          y:        hs.rect?.y ?? 0,
+          width:    hs.rect?.width ?? 10,
+          height:   hs.rect?.height ?? 10,
+          walkToX:  hs.walkTo?.x,
+          walkToY:  hs.walkTo?.y,
+          visible:  hs.visible !== undefined ? hs.visible : undefined,
+          lookAt:   hs.responses?.look_at || null,
+          pickUp:   hs.responses?.pick_up || null,
+          use:      hs.responses?.use || null,
+          open:     hs.responses?.open || null,
+          close:    hs.responses?.close || null,
+          push:     hs.responses?.push || null,
+          pull:     hs.responses?.pull || null,
+          _responses: hs.responses || {},
+        })),
+        exits: (room.exits || []).map(exit => ({
+          id:     exit.id,
+          x:      exit.rect?.x ?? 0,
+          y:      exit.rect?.y ?? 0,
+          width:  exit.rect?.width ?? 10,
+          height: exit.rect?.height ?? 10,
+          target: exit.target || '',
+          spawnX: exit.spawnAt?.x,
+          spawnY: exit.spawnAt?.y,
+          name:   exit.name,
+          lookAt: exit.lookAt || null,
+        })),
+      };
+    }
+    return map;
+  }
+
+  /**
+   * Build items as a keyed map.
+   * Matches GameLoader._normalizeItems() output (GameLoader.js:71-77).
+   * @private
+   */
+  static _buildItems(items) {
+    const map = {};
+    for (const item of items) {
+      map[item.id] = { ...item };
+    }
+    return map;
+  }
+
+  /**
+   * Build puzzles array with _key field and translate conditions/actions
+   * from editor format to engine DSL format.
+   * Matches GameLoader._normalizePuzzles() output (GameLoader.js:83-98).
+   * Condition/action format matches PuzzleSystem expectations (PuzzleSystem.js:25-91).
+   * @private
+   */
+  static _buildPuzzles(puzzles) {
+    return puzzles.map(p => {
+      const trigger = p.trigger || {};
+
+      // Build lookup key matching GameLoader._normalizePuzzles
+      let key;
+      if (trigger.item) {
+        key = `${trigger.verb}:${trigger.item}:${trigger.target}`;
+      } else {
+        key = `${trigger.verb}:${trigger.target}`;
+      }
+
+      const obj = {
+        id:      p.id,
+        trigger: { ...trigger },
+        _key:    key,
+      };
+
+      // Translate conditions from editor format to engine DSL
+      if (p.conditions && p.conditions.length > 0) {
+        obj.conditions = p.conditions.map(c => {
+          if (c.type === 'hasItem')  return { hasItem: c.value };
+          if (c.type === '!hasItem') return { notItem: c.value };
+          if (c.type === 'hasFlag')  return { hasFlag: c.value };
+          if (c.type === '!hasFlag') return { notFlag: c.value };
+          return { ...c };
+        });
+      }
+
+      // Translate actions from editor format to engine DSL
+      if (p.actions && p.actions.length > 0) {
+        obj.actions = p.actions.map(a => {
+          if (a.type === 'say')         return { say: a.text };
+          if (a.type === 'addItem')     return { addItem: a.itemId };
+          if (a.type === 'removeItem')  return { removeItem: a.itemId };
+          if (a.type === 'setFlag')     return { setFlag: a.flag };
+          if (a.type === 'removeFlag')  return { removeFlag: a.flag };
+          if (a.type === 'walkTo')      return { walkTo: { x: a.x, y: a.y } };
+          if (a.type === 'changeRoom')  return { changeRoom: { room: a.roomId, spawnX: a.spawnX, spawnY: a.spawnY } };
+          if (a.type === 'showHotspot') return { showHotspot: { id: a.hotspotId } };
+          if (a.type === 'hideHotspot') return { hideHotspot: { id: a.hotspotId } };
+          if (a.type === 'playSound')   return { playSound: a.sound };
+          return { ...a };
+        });
+      }
+
+      if (p.failText) obj.failText = p.failText;
+      return obj;
+    });
+  }
+
+  /**
+   * Build dialogues as a keyed map.
+   * Matches GameLoader._normalizeDialogues() output (GameLoader.js:170-177).
+   * @private
+   */
+  static _buildDialogues(dialogues) {
+    const map = {};
+    for (const [dId, tree] of Object.entries(dialogues)) {
+      map[dId] = { ...tree };
+    }
+    return map;
+  }
+
+  /**
+   * Build default protagonist traits based on setting.
+   * @private
+   */
+  static _buildProtagonist(setting) {
+    const base = {
+      bodyType: 'average',
+      skinTone: 'fair',
+      hairStyle: 'short',
+      hairColor: 'brown',
+      clothingColor: '#4a86c8',
+      facial: 'none',
+    };
+    switch (setting) {
+      case 'scifi':
+        return { ...base, clothing: 'jumpsuit', footwear: 'boots', accessory: 'none' };
+      case 'contemporary':
+        return { ...base, clothing: 'jacket', footwear: 'sneakers', accessory: 'none' };
+      case 'eighties':
+        return { ...base, clothing: 'neon_jacket', footwear: 'high_tops', accessory: 'sunglasses' };
+      default:
+        return { ...base, clothing: 'tunic', footwear: 'boots', accessory: 'none' };
+    }
+  }
+
+  /**
+   * Return a minimal valid game data structure for empty/null state.
    * @private
    */
   static _getDefaultGameData() {
     return {
-      game: {
-        title: 'Empty Playtest Game',
-        resolution: { width: 320, height: 200 },
-        startRoom: 'default_room',
-        verbs: [
-          'Walk to', 'Look at', 'Pick up', 'Use', 'Open', 'Close', 'Talk to', 'Push', 'Pull'
-        ],
-        defaultResponses: {
-          'Walk to': 'I can\'t walk there.',
-          'Look at': 'I don\'t see anything special.',
-          'Pick up': 'I can\'t pick that up.',
-          'Use': 'That doesn\'t work.',
-          'Open': 'I can\'t open that.',
-          'Close': 'I can\'t close that.',
-          'Talk to': 'There\'s no one to talk to.',
-          'Push': 'I can\'t push that.',
-          'Pull': 'I can\'t pull that.',
-        },
+      title: 'Empty Playtest Game',
+      setting: null,
+      version: '1.0',
+      resolution: { width: 320, height: 200 },
+      viewportHeight: 140,
+      startRoom: 'default_room',
+      startPosition: { x: 160, y: 120 },
+      verbs: [
+        { id: 'give',    label: 'Give' },
+        { id: 'open',    label: 'Open' },
+        { id: 'close',   label: 'Close' },
+        { id: 'pick_up', label: 'Pick up' },
+        { id: 'look_at', label: 'Look at' },
+        { id: 'talk_to', label: 'Talk to' },
+        { id: 'use',     label: 'Use' },
+        { id: 'push',    label: 'Push' },
+        { id: 'pull',    label: 'Pull' },
+      ],
+      defaultResponses: {
+        look_at: "Nothing special about it.",
+        pick_up: "I can't pick that up.",
+        use:     "I can't use that.",
+        open:    "It doesn't open.",
+        close:   "It's not open.",
+        push:    "It won't budge.",
+        pull:    "Nothing happens.",
+        give:    "I don't think they want that.",
+        talk_to: "I don't think talking to that will help.",
       },
-      rooms: [
-        {
+      protagonist: {
+        bodyType: 'average',
+        skinTone: 'fair',
+        hairStyle: 'short',
+        hairColor: 'brown',
+        clothing: 'tunic',
+        clothingColor: '#4a86c8',
+        facial: 'none',
+        footwear: 'boots',
+        accessory: 'none',
+      },
+      items: {},
+      npcs: [],
+      puzzles: [],
+      rooms: {
+        default_room: {
           id: 'default_room',
           name: 'Empty Room',
+          description: '',
           background: {},
+          lighting: null,
+          walkableArea: { rects: [{ x: 20, y: 80, width: 280, height: 60 }] },
           hotspots: [],
           exits: [],
-          walkableAreas: [],
           visuals: [],
-        }
-      ],
-      npcs: [],
-      items: [],
-      puzzles: [],
-      dialogues: [],
+          npcs: [],
+        },
+      },
+      dialogues: {},
+      music: null,
     };
   }
 }

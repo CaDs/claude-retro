@@ -22,6 +22,33 @@ export class ExportBuilder {
       content: yaml.dump(state.toYaml(), { lineWidth: 120, noRefs: true }),
     });
 
+    // --- protagonist.yaml (default protagonist) ---
+    const settingDefaults = {
+      fantasy: { clothing: 'tunic', footwear: 'boots', accessory: 'none' },
+      scifi: { clothing: 'jumpsuit', footwear: 'boots', accessory: 'visor' },
+      contemporary: { clothing: 'jacket', footwear: 'sneakers', accessory: 'none' },
+      eighties: { clothing: 'neon_jacket', footwear: 'high_tops', accessory: 'sunglasses' },
+    };
+    const settingTraits = settingDefaults[state.game.setting] || settingDefaults.fantasy;
+    files.push({
+      path: 'protagonist.yaml',
+      content: yaml.dump({
+        protagonist: {
+          traits: {
+            bodyType: 'average',
+            skinTone: 'fair',
+            hairStyle: 'short',
+            hairColor: 'brown',
+            clothing: settingTraits.clothing,
+            clothingColor: '#4a86c8',
+            footwear: settingTraits.footwear,
+            accessory: settingTraits.accessory,
+            facial: 'none',
+          }
+        }
+      }, { lineWidth: 120, noRefs: true }),
+    });
+
     // --- rooms/*.yaml (one file per room) ---
     for (const room of state.rooms) {
       const roomYaml = state.toRoomYaml(room.id);
@@ -33,29 +60,23 @@ export class ExportBuilder {
       }
     }
 
-    // --- npcs.yaml (if NPCs exist) ---
-    if (state.npcs.length > 0) {
-      files.push({
-        path: 'npcs.yaml',
-        content: yaml.dump(state.toNpcsYaml(), { lineWidth: 120, noRefs: true }),
-      });
-    }
+    // --- npcs.yaml (always generated) ---
+    files.push({
+      path: 'npcs.yaml',
+      content: yaml.dump(state.toNpcsYaml(), { lineWidth: 120, noRefs: true }),
+    });
 
-    // --- items.yaml (if items exist) ---
-    if (state.items.length > 0) {
-      files.push({
-        path: 'items.yaml',
-        content: yaml.dump(state.toItemsYaml(), { lineWidth: 120, noRefs: true }),
-      });
-    }
+    // --- items.yaml (always generated) ---
+    files.push({
+      path: 'items.yaml',
+      content: yaml.dump(state.toItemsYaml(), { lineWidth: 120, noRefs: true }),
+    });
 
-    // --- puzzles.yaml (if puzzles exist) ---
-    if (state.puzzles.length > 0) {
-      files.push({
-        path: 'puzzles.yaml',
-        content: yaml.dump(state.toPuzzlesYaml(), { lineWidth: 120, noRefs: true }),
-      });
-    }
+    // --- puzzles.yaml (always generated) ---
+    files.push({
+      path: 'puzzles.yaml',
+      content: yaml.dump(state.toPuzzlesYaml(), { lineWidth: 120, noRefs: true }),
+    });
 
     // --- dialogues/*.yaml (one file per dialogue tree) ---
     for (const dialogueId of Object.keys(state.dialogues)) {

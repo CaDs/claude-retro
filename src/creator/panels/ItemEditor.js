@@ -137,7 +137,43 @@ export class ItemEditor {
 
     iconSection.appendChild(this._createSelect('Icon Type', iconTypes, item.icon.generator, (val) => {
       this.app.state.updateItem(item.id, { icon: { generator: val } });
+      const rightPanelBody = form.closest('.creator-right-panel__body');
+      if (rightPanelBody) {
+        this._renderRightPanel(rightPanelBody);
+      }
     }));
+
+    // Icon preview
+    const previewWrap = document.createElement('div');
+    previewWrap.style.cssText = 'display:flex;justify-content:center;padding:8px 0;margin-top:8px;background:#1a1a2e;border-radius:4px;';
+
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.width = 16;
+    previewCanvas.height = 16;
+    previewCanvas.style.cssText = 'width:48px;height:48px;image-rendering:pixelated;';
+    previewWrap.appendChild(previewCanvas);
+    iconSection.appendChild(previewWrap);
+
+    // Draw icon representation
+    const pCtx = previewCanvas.getContext('2d');
+    pCtx.imageSmoothingEnabled = false;
+    if (item.icon.generator) {
+      // Draw a simple colored square with type label
+      pCtx.fillStyle = '#2a2a4a';
+      pCtx.fillRect(0, 0, 16, 16);
+      pCtx.fillStyle = '#f0c040';
+      pCtx.fillRect(3, 3, 10, 10);
+      pCtx.strokeStyle = '#fff';
+      pCtx.lineWidth = 1;
+      pCtx.strokeRect(3, 3, 10, 10);
+    } else {
+      pCtx.fillStyle = '#2a2a4a';
+      pCtx.fillRect(0, 0, 16, 16);
+      pCtx.fillStyle = '#555';
+      pCtx.font = '4px monospace';
+      pCtx.textAlign = 'center';
+      pCtx.fillText('?', 8, 11);
+    }
 
     form.appendChild(iconSection);
 
@@ -167,6 +203,80 @@ export class ItemEditor {
     }));
 
     form.appendChild(useDefaultSection);
+
+    // Use On Targets Section (collapsible)
+    const useOnSection = this._createSection('Use On Targets');
+    const useOnEntries = Object.entries(item.useOn || {});
+
+    if (useOnEntries.length === 0) {
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:11px;color:var(--color-muted);padding:4px 0;';
+      hint.textContent = 'No targets defined. Add responses for using this item on specific objects.';
+      useOnSection.appendChild(hint);
+    }
+
+    for (const [target, response] of useOnEntries) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:4px;align-items:flex-start;margin-top:6px;';
+
+      const targetInput = document.createElement('input');
+      targetInput.className = 'creator-input';
+      targetInput.style.cssText = 'flex:1;';
+      targetInput.placeholder = 'Target ID';
+      targetInput.value = target;
+
+      const responseInput = document.createElement('input');
+      responseInput.className = 'creator-input';
+      responseInput.style.cssText = 'flex:2;';
+      responseInput.placeholder = 'Response text';
+      responseInput.value = response;
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'creator-btn creator-btn--small creator-btn--danger';
+      delBtn.textContent = 'x';
+      delBtn.style.cssText = 'padding:2px 6px;flex-shrink:0;';
+
+      // When target name changes, we need to re-key the object
+      const saveRow = () => {
+        const newUseOn = { ...item.useOn };
+        delete newUseOn[target];
+        if (targetInput.value.trim()) {
+          newUseOn[targetInput.value.trim()] = responseInput.value;
+        }
+        this.app.state.updateItem(item.id, { useOn: newUseOn });
+      };
+
+      targetInput.addEventListener('change', () => {
+        saveRow();
+        this._renderRightPanel(form.closest('.creator-right-panel__body'));
+      });
+      responseInput.addEventListener('change', saveRow);
+      delBtn.addEventListener('click', () => {
+        const newUseOn = { ...item.useOn };
+        delete newUseOn[target];
+        this.app.state.updateItem(item.id, { useOn: newUseOn });
+        this._renderRightPanel(form.closest('.creator-right-panel__body'));
+      });
+
+      row.appendChild(targetInput);
+      row.appendChild(responseInput);
+      row.appendChild(delBtn);
+      useOnSection.appendChild(row);
+    }
+
+    // Add button
+    const addUseOnBtn = document.createElement('button');
+    addUseOnBtn.className = 'creator-btn creator-btn--small';
+    addUseOnBtn.textContent = '+ Add Target';
+    addUseOnBtn.style.cssText = 'margin-top:8px;';
+    addUseOnBtn.addEventListener('click', () => {
+      const newUseOn = { ...item.useOn, ['target_' + Date.now()]: '' };
+      this.app.state.updateItem(item.id, { useOn: newUseOn });
+      this._renderRightPanel(form.closest('.creator-right-panel__body'));
+    });
+    useOnSection.appendChild(addUseOnBtn);
+
+    form.appendChild(useOnSection);
 
     // Delete button
     const divider = document.createElement('div');

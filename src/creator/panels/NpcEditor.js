@@ -46,6 +46,7 @@ export class NpcEditor {
     this.selectedNpcId = null;
     this._previewCanvas = null;
     this._previewCtx = null;
+    this._pendingPlacement = null;
   }
 
   render(leftPanel, rightPanel) {
@@ -100,7 +101,10 @@ export class NpcEditor {
     leftPanel.appendChild(list);
 
     leftPanel.querySelector('#add-npc-btn').addEventListener('click', () => {
-      const id = 'npc_' + (this.app.state.npcs.length + 1);
+      let id = 'npc_' + (this.app.state.npcs.length + 1);
+      while (this.app.state.getNpc(id)) {
+        id = 'npc_' + Date.now();
+      }
       this.app.state.addNpc({
         id,
         name: 'New NPC',
@@ -149,6 +153,15 @@ export class NpcEditor {
     // --- Responses ---
     this._appendResponsesSection(body, npc);
 
+    // --- Dialogue Assignment ---
+    this._appendDialogueSection(body, npc, leftPanel, rightPanel);
+
+    // --- Dialogue Overrides ---
+    this._appendDialogueOverridesSection(body, npc, leftPanel, rightPanel);
+
+    // --- Barks ---
+    this._appendBarksSection(body, npc, leftPanel, rightPanel);
+
     // --- Delete ---
     const divider = document.createElement('div');
     divider.className = 'creator-divider';
@@ -159,6 +172,7 @@ export class NpcEditor {
     deleteBtn.textContent = 'Delete NPC';
     deleteBtn.style.cssText = 'margin-top:8px;width:100%;';
     deleteBtn.addEventListener('click', () => {
+      if (!confirm('Delete this NPC? This cannot be undone.')) return;
       this.app.state.removeNpc(npc.id);
       this.selectedNpcId = null;
       this.render(leftPanel, rightPanel);
@@ -500,6 +514,16 @@ export class NpcEditor {
     }));
     card.appendChild(walkFields);
 
+    // Place on Canvas button
+    const placeBtn = document.createElement('button');
+    placeBtn.className = 'creator-btn creator-btn--small creator-btn--primary';
+    placeBtn.textContent = 'Place on Canvas';
+    placeBtn.style.cssText = 'margin-top:8px;width:100%;';
+    placeBtn.addEventListener('click', () => {
+      this._enterPlacementMode(npc.id, index, placement.room);
+    });
+    card.appendChild(placeBtn);
+
     // Delete placement button
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'creator-btn creator-btn--small creator-btn--danger';
@@ -607,5 +631,338 @@ export class NpcEditor {
 
   _esc(str) {
     return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // ==========================================================================
+  // Dialogue Assignment section
+  // ==========================================================================
+
+  _appendDialogueSection(container, npc, leftPanel, rightPanel) {
+    const section = document.createElement('div');
+    section.className = 'creator-form-section';
+
+    const header = document.createElement('div');
+    header.className = 'creator-collapse__header';
+    header.innerHTML = `
+      <span class="creator-collapse__arrow">&#9654;</span>
+      <span>Dialogue Assignment</span>
+    `;
+    section.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'creator-collapse__body';
+    body.style.display = 'none';
+
+    const field = document.createElement('div');
+    field.className = 'creator-field';
+    field.style.cssText = 'margin-top:6px;';
+
+    const label = document.createElement('label');
+    label.className = 'creator-field__label';
+    label.textContent = 'Dialogue';
+    field.appendChild(label);
+
+    const select = document.createElement('select');
+    select.className = 'creator-select';
+
+    const noneOption = document.createElement('option');
+    noneOption.value = '';
+    noneOption.textContent = '-- No Dialogue --';
+    if (!npc.dialogue) noneOption.selected = true;
+    select.appendChild(noneOption);
+
+    for (const dialogueId of Object.keys(this.app.state.dialogues)) {
+      const option = document.createElement('option');
+      option.value = dialogueId;
+      option.textContent = dialogueId;
+      if (npc.dialogue === dialogueId) option.selected = true;
+      select.appendChild(option);
+    }
+
+    select.addEventListener('change', () => {
+      this.app.state.updateNpc(npc.id, { dialogue: select.value || null });
+    });
+
+    field.appendChild(select);
+    body.appendChild(field);
+    section.appendChild(body);
+
+    header.addEventListener('click', () => {
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      header.querySelector('.creator-collapse__arrow').textContent = isOpen ? '\u25B6' : '\u25BC';
+      section.classList.toggle('creator-collapse--open', !isOpen);
+    });
+
+    container.appendChild(section);
+  }
+
+  // ==========================================================================
+  // Dialogue Overrides section
+  // ==========================================================================
+
+  _appendDialogueOverridesSection(container, npc, leftPanel, rightPanel) {
+    const section = document.createElement('div');
+    section.className = 'creator-form-section';
+
+    const header = document.createElement('div');
+    header.className = 'creator-collapse__header';
+    header.innerHTML = `
+      <span class="creator-collapse__arrow">&#9654;</span>
+      <span>Dialogue Overrides</span>
+    `;
+    section.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'creator-collapse__body';
+    body.style.display = 'none';
+
+    const overrides = npc.dialogueOverrides || [];
+
+    if (overrides.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'creator-empty';
+      empty.style.cssText = 'padding:8px 0;';
+      empty.innerHTML = '<span class="creator-empty__text">No overrides</span>';
+      body.appendChild(empty);
+    }
+
+    for (let i = 0; i < overrides.length; i++) {
+      const override = overrides[i];
+      const card = document.createElement('div');
+      card.className = 'creator-card';
+      card.style.cssText = 'margin-top:6px;padding:8px 10px;';
+
+      // Condition field
+      const condField = document.createElement('div');
+      condField.className = 'creator-field';
+      condField.style.cssText = 'margin-bottom:6px;';
+
+      const condLabel = document.createElement('label');
+      condLabel.className = 'creator-field__label';
+      condLabel.textContent = 'Condition (flag name)';
+      condField.appendChild(condLabel);
+
+      const condInput = document.createElement('input');
+      condInput.className = 'creator-input';
+      condInput.value = override.condition || '';
+      condInput.placeholder = 'e.g. quest_completed';
+      condInput.addEventListener('change', () => {
+        override.condition = condInput.value;
+        this.app.state.updateNpc(npc.id, { dialogueOverrides: [...overrides] });
+      });
+      condField.appendChild(condInput);
+      card.appendChild(condField);
+
+      // Dialogue field
+      const dialogueField = document.createElement('div');
+      dialogueField.className = 'creator-field';
+      dialogueField.style.cssText = 'margin-bottom:6px;';
+
+      const dialogueLabel = document.createElement('label');
+      dialogueLabel.className = 'creator-field__label';
+      dialogueLabel.textContent = 'Dialogue';
+      dialogueField.appendChild(dialogueLabel);
+
+      const dialogueSelect = document.createElement('select');
+      dialogueSelect.className = 'creator-select';
+
+      const noneOption = document.createElement('option');
+      noneOption.value = '';
+      noneOption.textContent = '-- No Dialogue --';
+      if (!override.dialogue) noneOption.selected = true;
+      dialogueSelect.appendChild(noneOption);
+
+      for (const dialogueId of Object.keys(this.app.state.dialogues)) {
+        const option = document.createElement('option');
+        option.value = dialogueId;
+        option.textContent = dialogueId;
+        if (override.dialogue === dialogueId) option.selected = true;
+        dialogueSelect.appendChild(option);
+      }
+
+      dialogueSelect.addEventListener('change', () => {
+        override.dialogue = dialogueSelect.value || '';
+        this.app.state.updateNpc(npc.id, { dialogueOverrides: [...overrides] });
+      });
+
+      dialogueField.appendChild(dialogueSelect);
+      card.appendChild(dialogueField);
+
+      // Delete button
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'creator-btn creator-btn--small creator-btn--danger';
+      deleteBtn.textContent = 'Remove Override';
+      deleteBtn.style.cssText = 'margin-top:6px;width:100%;';
+      deleteBtn.addEventListener('click', () => {
+        const updated = [...overrides];
+        updated.splice(i, 1);
+        this.app.state.updateNpc(npc.id, { dialogueOverrides: updated });
+        this.render(leftPanel, rightPanel);
+      });
+      card.appendChild(deleteBtn);
+
+      body.appendChild(card);
+    }
+
+    // Add Override button
+    const addBtn = document.createElement('button');
+    addBtn.className = 'creator-btn creator-btn--small';
+    addBtn.textContent = '+ Add Override';
+    addBtn.style.cssText = 'margin-top:8px;width:100%;';
+    addBtn.addEventListener('click', () => {
+      const updated = [...overrides, { condition: '', dialogue: '' }];
+      this.app.state.updateNpc(npc.id, { dialogueOverrides: updated });
+      this.render(leftPanel, rightPanel);
+    });
+    body.appendChild(addBtn);
+
+    section.appendChild(body);
+
+    header.addEventListener('click', () => {
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      header.querySelector('.creator-collapse__arrow').textContent = isOpen ? '\u25B6' : '\u25BC';
+      section.classList.toggle('creator-collapse--open', !isOpen);
+    });
+
+    container.appendChild(section);
+  }
+
+  // ==========================================================================
+  // Barks (Idle Lines) section
+  // ==========================================================================
+
+  _appendBarksSection(container, npc, leftPanel, rightPanel) {
+    const section = document.createElement('div');
+    section.className = 'creator-form-section';
+
+    const header = document.createElement('div');
+    header.className = 'creator-collapse__header';
+    header.innerHTML = `
+      <span class="creator-collapse__arrow">&#9654;</span>
+      <span>Barks (Idle Lines)</span>
+    `;
+    section.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'creator-collapse__body';
+    body.style.display = 'none';
+
+    const barks = npc.barks || [];
+
+    if (barks.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'creator-empty';
+      empty.style.cssText = 'padding:8px 0;';
+      empty.innerHTML = '<span class="creator-empty__text">No barks</span>';
+      body.appendChild(empty);
+    }
+
+    for (let i = 0; i < barks.length; i++) {
+      const bark = barks[i];
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:4px;align-items:center;margin-top:6px;';
+
+      const input = document.createElement('input');
+      input.className = 'creator-input';
+      input.value = bark || '';
+      input.placeholder = 'Idle line text';
+      input.style.cssText = 'flex:1;';
+      input.addEventListener('change', () => {
+        barks[i] = input.value;
+        this.app.state.updateNpc(npc.id, { barks: [...barks] });
+      });
+      row.appendChild(input);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'creator-btn creator-btn--small creator-btn--danger';
+      deleteBtn.textContent = 'x';
+      deleteBtn.style.cssText = 'width:28px;height:28px;padding:0;';
+      deleteBtn.addEventListener('click', () => {
+        const updated = [...barks];
+        updated.splice(i, 1);
+        this.app.state.updateNpc(npc.id, { barks: updated });
+        this.render(leftPanel, rightPanel);
+      });
+      row.appendChild(deleteBtn);
+
+      body.appendChild(row);
+    }
+
+    // Add Bark button
+    const addBtn = document.createElement('button');
+    addBtn.className = 'creator-btn creator-btn--small';
+    addBtn.textContent = '+ Add Bark';
+    addBtn.style.cssText = 'margin-top:8px;width:100%;';
+    addBtn.addEventListener('click', () => {
+      const updated = [...barks, ''];
+      this.app.state.updateNpc(npc.id, { barks: updated });
+      this.render(leftPanel, rightPanel);
+    });
+    body.appendChild(addBtn);
+
+    section.appendChild(body);
+
+    header.addEventListener('click', () => {
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      header.querySelector('.creator-collapse__arrow').textContent = isOpen ? '\u25B6' : '\u25BC';
+      section.classList.toggle('creator-collapse--open', !isOpen);
+    });
+
+    container.appendChild(section);
+  }
+
+  // ==========================================================================
+  // Canvas Placement methods
+  // ==========================================================================
+
+  /**
+   * Enter placement mode for a specific NPC placement.
+   * Switches to the rooms tab, selects the target room, and activates placeNpc mode.
+   */
+  _enterPlacementMode(npcId, placementIndex, targetRoom) {
+    // Set pending placement
+    this._pendingPlacement = { npcId, placementIndex };
+
+    // Switch to rooms tab
+    this.app.activeTab = 'rooms';
+    this.app.render();
+
+    // Select the target room in RoomEditor
+    const roomEditor = this.app._panels.rooms;
+    if (roomEditor && targetRoom) {
+      roomEditor.selectedRoomId = targetRoom;
+      roomEditor.editMode = 'info';
+      roomEditor._renderLeft();
+      roomEditor._renderRight();
+    }
+
+    // Set overlay to placeNpc mode
+    if (roomEditor && roomEditor.overlay) {
+      roomEditor.overlay.setMode('placeNpc');
+    }
+  }
+
+  /**
+   * Apply the placement position from a canvas click.
+   * Called by RoomEditor's onNpcPlaced callback.
+   */
+  applyPlacement(x, y) {
+    if (!this._pendingPlacement) return;
+
+    const { npcId, placementIndex } = this._pendingPlacement;
+    const npc = this.app.state.getNpc(npcId);
+    if (!npc || !npc.placements || !npc.placements[placementIndex]) return;
+
+    const placements = [...npc.placements];
+    placements[placementIndex] = {
+      ...placements[placementIndex],
+      position: { x, y },
+    };
+
+    this.app.state.updateNpc(npcId, { placements });
+    this._pendingPlacement = null;
   }
 }
