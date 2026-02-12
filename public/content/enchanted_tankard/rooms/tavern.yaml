@@ -5,8 +5,14 @@ room:
   description: "A warm, dimly lit tavern. The smell of ale and woodsmoke fills the air."
 
   background:
-    type: procedural
-    generator: tavern
+    template: fantasy/tavern
+
+  lighting:
+    ambient: { color: "#1a1000", intensity: 0.15 }
+    lights:
+      - { x: 27, y: 65, radius: 60, color: "#ff8844", intensity: 0.6, flicker: true }
+      - { x: 123, y: 8, radius: 30, color: "#ffaa44", intensity: 0.4, flicker: true }
+      - { x: 203, y: 8, radius: 30, color: "#ffaa44", intensity: 0.4, flicker: true }
 
   walkableArea:
     rects:

@@ -5,8 +5,10 @@ room:
   description: "The bustling village square. A stone well sits in the center, and colorful market stalls line the edges."
 
   background:
-    type: procedural
-    generator: village_square
+    template: fantasy/village_square
+
+  lighting:
+    ambient: { color: "#000020", intensity: 0.05 }
 
   visuals:
     - { type: barrel, x: 75, y: 88 }

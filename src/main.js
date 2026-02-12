@@ -16,7 +16,9 @@ import { CharacterGenerator } from './engine/CharacterGenerator.js';
 import { PuzzleSystem } from './systems/PuzzleSystem.js';
 import { AudioSystem } from './systems/AudioSystem.js';
 import { LightingSystem } from './engine/LightingSystem.js';
+import { Palette } from './engine/Palette.js';
 import { registerAllTemplates } from './templates/index.js';
+import { settings } from './settings/index.js';
 
 /**
  * GameEngine — Data-driven game engine orchestrating all systems.
@@ -105,6 +107,18 @@ class GameEngine {
     this.characters = new CharacterSystem(this.content);
     this.puzzles = new PuzzleSystem(this.content);
 
+    // Derive save key from game title
+    const saveKey = (this.content.title || 'adventure').toLowerCase().replace(/\s+/g, '_') + '_save';
+    this.save = new SaveSystem(saveKey);
+
+    // Register setting palettes so templates can resolve them
+    const settingId = this.content.setting;
+    if (settingId && settings[settingId]?.palettes) {
+      for (const [id, colorMap] of Object.entries(settings[settingId].palettes)) {
+        Palette.register(id, colorMap);
+      }
+    }
+
     // Register all rooms from content
     for (const [id, room] of Object.entries(this.content.getAllRooms())) {
       this.scenes.registerRoom(id, room);
@@ -113,10 +127,11 @@ class GameEngine {
     // Register all room templates
     registerAllTemplates();
 
-    // Generate procedural pixel art assets (legacy path)
-    ProceduralAssets.generateAll(this.assets);
+    // Generate core assets (cursor) and item icons from content
+    ProceduralAssets.generateCoreAssets(this.assets);
+    ProceduralAssets.generateItemIcons(this.assets, this.content);
 
-    // Generate template-based backgrounds (new path — additive, won't overwrite legacy)
+    // Generate template-based room backgrounds
     ProceduralAssets.generateTemplateBackgrounds(this.assets, this.content);
 
     // Simulate brief loading for effect
@@ -153,15 +168,13 @@ class GameEngine {
   }
 
   /**
-   * Configure lighting for the current room.
-   * Reads from YAML definition if available, falls back to legacy hardcoded values.
+   * Configure lighting for the current room from YAML definition.
    */
   _configureLighting() {
     this.lighting.clear();
     const roomId = this.scenes.currentRoomId;
     const room = this.content.getRoom(roomId);
 
-    // New path: read lighting from room YAML definition
     if (room && room.lighting) {
       if (room.lighting.ambient) {
         this.lighting.setAmbient(room.lighting.ambient.color, room.lighting.ambient.intensity);
@@ -169,39 +182,6 @@ class GameEngine {
       for (const light of (room.lighting.lights || [])) {
         this.lighting.addLight(light.x, light.y, light.radius, light.color, light.intensity, light.flicker);
       }
-      return;
-    }
-
-    // Legacy fallback: hardcoded lighting per room
-    this._configureLightingLegacy(roomId);
-  }
-
-  /**
-   * Legacy hardcoded lighting for existing Enchanted Tankard rooms.
-   */
-  _configureLightingLegacy(roomId) {
-    switch (roomId) {
-      case 'tavern':
-        this.lighting.setAmbient('#1a1000', 0.15);
-        this.lighting.addLight(27, 65, 60, '#ff8844', 0.6, true);  // fireplace
-        this.lighting.addLight(123, 8, 30, '#ffaa44', 0.4, true);   // lantern left
-        this.lighting.addLight(203, 8, 30, '#ffaa44', 0.4, true);   // lantern right
-        break;
-      case 'village_square':
-        this.lighting.setAmbient('#000020', 0.05);
-        break;
-      case 'forest_path':
-        this.lighting.setAmbient('#002200', 0.2);
-        this.lighting.addLight(95, 70, 15, '#eeee66', 0.3, false);  // light shaft
-        this.lighting.addLight(160, 70, 15, '#eeee66', 0.3, false);
-        this.lighting.addLight(225, 70, 15, '#eeee66', 0.3, false);
-        this.lighting.addLight(215, 110, 20, '#44ff44', 0.2, true);  // mushroom glow
-        break;
-      case 'temple':
-        this.lighting.setAmbient('#050510', 0.25);
-        this.lighting.addLight(110, 75, 30, '#ffaa33', 0.5, true);   // altar glow (flickering)
-        this.lighting.addLight(290, 40, 45, '#aabbcc', 0.35, false); // wall opening (steady)
-        break;
     }
   }
 

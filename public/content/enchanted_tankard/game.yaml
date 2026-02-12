@@ -1,6 +1,7 @@
 game:
   title: "The Enchanted Tankard"
   version: "1.0"
+  setting: fantasy
   resolution: { width: 320, height: 200 }
   viewportHeight: 140
   startRoom: village_square

@@ -5,8 +5,15 @@ room:
   description: "A mossy path winds between towering ancient oaks. Shafts of light pierce the canopy."
 
   background:
-    type: procedural
-    generator: forest_path
+    template: fantasy/forest_path
+
+  lighting:
+    ambient: { color: "#002200", intensity: 0.2 }
+    lights:
+      - { x: 95, y: 70, radius: 15, color: "#eeee66", intensity: 0.3, flicker: false }
+      - { x: 160, y: 70, radius: 15, color: "#eeee66", intensity: 0.3, flicker: false }
+      - { x: 225, y: 70, radius: 15, color: "#eeee66", intensity: 0.3, flicker: false }
+      - { x: 215, y: 110, radius: 20, color: "#44ff44", intensity: 0.2, flicker: true }
 
   visuals:
     - { type: mushroom, x: 80, y: 100, variant: cluster }

@@ -5,8 +5,13 @@ room:
   description: "A crumbling stone temple, long abandoned. Cool air and the faint scent of incense linger."
 
   background:
-    type: procedural
-    generator: temple
+    template: fantasy/temple_ruins
+
+  lighting:
+    ambient: { color: "#050510", intensity: 0.25 }
+    lights:
+      - { x: 110, y: 75, radius: 30, color: "#ffaa33", intensity: 0.5, flicker: true }
+      - { x: 290, y: 40, radius: 45, color: "#aabbcc", intensity: 0.35, flicker: false }
 
   walkableArea:
     rects:
